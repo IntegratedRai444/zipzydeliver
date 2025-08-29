@@ -1,0 +1,257 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Advanced Dark Theme with Purple Accent */
+:root {
+  /* Light Mode - Minimal for fallback */
+  --background: hsl(240, 10%, 3.9%);
+  --foreground: hsl(0, 0%, 98%);
+  --card: hsl(240, 10%, 6%);
+  --card-foreground: hsl(0, 0%, 95%);
+  --popover: hsl(240, 10%, 6%);
+  --popover-foreground: hsl(0, 0%, 95%);
+  --primary: hsl(262.1, 83.3%, 57.8%);
+  --primary-foreground: hsl(210, 40%, 98%);
+  --secondary: hsl(240, 4.8%, 15.9%);
+  --secondary-foreground: hsl(0, 0%, 98%);
+  --muted: hsl(240, 5.9%, 10%);
+  --muted-foreground: hsl(240, 5%, 64.9%);
+  --accent: hsl(240, 4.8%, 15.9%);
+  --accent-foreground: hsl(0, 0%, 98%);
+  --destructive: hsl(0, 72.2%, 50.6%);
+  --destructive-foreground: hsl(0, 85.7%, 97.3%);
+  --border: hsl(240, 5.9%, 20%);
+  --input: hsl(240, 5.9%, 15%);
+  --ring: hsl(262.1, 83.3%, 57.8%);
+  
+  /* Enhanced shadows for depth */
+  --shadow-glow: 0 0 20px hsl(262.1, 83.3%, 57.8% / 0.15);
+  --shadow-card: 0 4px 24px hsl(240, 10%, 2% / 0.8), 0 2px 8px hsl(240, 10%, 2% / 0.4);
+  --shadow-intense: 0 8px 32px hsl(240, 10%, 2% / 0.9), 0 4px 16px hsl(240, 10%, 2% / 0.6);
+  
+  /* Gradients */
+  --gradient-purple: linear-gradient(135deg, hsl(262.1, 83.3%, 57.8%) 0%, hsl(292, 84%, 61%) 100%);
+  --gradient-dark: linear-gradient(135deg, hsl(240, 10%, 8%) 0%, hsl(240, 10%, 12%) 100%);
+  --gradient-card: linear-gradient(135deg, hsl(240, 10%, 6%) 0%, hsl(240, 10%, 8%) 100%);
+  
+  /* Glass effects */
+  --glass-bg: hsla(240, 10%, 12%, 0.8);
+  --glass-border: hsla(262.1, 83.3%, 57.8%, 0.2);
+  
+  /* Typography */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  
+  /* Spacing and sizing */
+  --radius: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.5rem;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    background: var(--gradient-dark);
+    min-height: 100vh;
+  }
+
+  /* Enhanced scrollbar for dark theme */
+  ::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: hsl(240, 10%, 8%);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: hsl(240, 5%, 25%);
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(262.1, 83.3%, 57.8%);
+  }
+}
+
+/* Advanced glass morphism effects */
+@layer components {
+  .glass-card {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--shadow-card);
+    border-radius: var(--radius-lg);
+  }
+
+  @supports ((-webkit-backdrop-filter: blur(16px))) {
+    .glass-card {
+      -webkit-backdrop-filter: blur(16px);
+      backdrop-filter: blur(16px);
+    }
+  }
+
+  .glass-intense {
+    background: hsla(240, 10%, 8%, 0.9);
+    -webkit-backdrop-filter: blur(24px);
+    backdrop-filter: blur(24px);
+    border: 1px solid hsla(262.1, 83.3%, 57.8%, 0.3);
+    box-shadow: var(--shadow-intense);
+  }
+
+  .glow-purple {
+    box-shadow: var(--shadow-glow);
+  }
+
+  .gradient-text {
+    background: var(--gradient-purple);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .neon-border {
+    border: 1px solid transparent;
+    background: linear-gradient(var(--gradient-dark), var(--gradient-dark)) padding-box,
+                var(--gradient-purple) border-box;
+  }
+
+  /* Enhanced button styles */
+  .btn-glow {
+    background: var(--gradient-purple);
+    box-shadow: 0 4px 20px hsl(262.1, 83.3%, 57.8% / 0.4);
+    transition: all 0.3s ease;
+    border-radius: var(--radius);
+  }
+
+  .btn-glow:hover {
+    box-shadow: 0 6px 25px hsl(262.1, 83.3%, 57.8% / 0.6);
+    transform: translateY(-2px);
+  }
+
+  /* Card hover effects */
+  .card-hover {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transform-style: preserve-3d;
+  }
+
+  .card-hover:hover {
+    transform: translateY(-4px) rotateX(3deg) rotateY(-3deg);
+    box-shadow: var(--shadow-intense), var(--shadow-glow);
+  }
+
+  /* 3D tilt inner shine */
+  .card-tilt-shine::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(600px circle at var(--mx, 50%) var(--my, 50%), rgba(255,255,255,0.12), transparent 40%);
+    pointer-events: none;
+    transition: opacity .2s ease;
+    opacity: .6;
+  }
+
+  /* Floating elements */
+  .float-animation {
+    animation: float 6s ease-in-out infinite;
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-10px); }
+  }
+
+  /* Pulse glow animation */
+  .pulse-glow {
+    animation: pulse-glow 2s ease-in-out infinite alternate;
+  }
+
+  @keyframes pulse-glow {
+    from {
+      box-shadow: 0 0 20px hsl(262.1, 83.3%, 57.8% / 0.2);
+    }
+    to {
+      box-shadow: 0 0 30px hsl(262.1, 83.3%, 57.8% / 0.4);
+    }
+  }
+}
+
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--muted-foreground)) transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: hsl(var(--muted-foreground));
+  border-radius: 3px;
+}
+
+.fade-in {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from { 
+    opacity: 0; 
+    transform: translateY(10px); 
+  }
+  to { 
+    opacity: 1; 
+    transform: translateY(0); 
+  }
+}
+
+.bounce-in {
+  animation: bounceIn 0.4s ease-out;
+}
+
+@keyframes bounceIn {
+  0% { 
+    transform: scale(0.8); 
+    opacity: 0; 
+  }
+  50% { 
+    transform: scale(1.05); 
+    opacity: 0.8; 
+  }
+  100% { 
+    transform: scale(1); 
+    opacity: 1; 
+  }
+}
+
+.line-clamp-1 {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+}
+
+.line-clamp-2 {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.hover\:scale-102:hover {
+  transform: scale(1.02);
+}

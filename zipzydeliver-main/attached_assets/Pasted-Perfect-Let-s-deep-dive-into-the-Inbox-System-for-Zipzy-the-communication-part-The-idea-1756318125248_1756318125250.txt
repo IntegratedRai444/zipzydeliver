@@ -1,0 +1,93 @@
+Perfect 👌 Let’s deep dive into the **Inbox System for Zipzy** (the communication part).
+
+The idea is:
+👉 A **temporary chat system** that only opens when an order is active and **closes automatically once the order is delivered**.
+
+---
+
+### **Inbox System Design**
+
+#### **Database Table**
+
+```sql
+CREATE TABLE messages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  order_id UUID REFERENCES orders(id) ON DELETE CASCADE,
+  sender_id UUID NOT NULL,
+  receiver_id UUID NOT NULL,
+  message TEXT NOT NULL,
+  sent_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+* Each chat message is tied to an **order\_id**.
+* `sender_id` = user or partner.
+* `receiver_id` = the other side.
+
+---
+
+#### **API Endpoints**
+
+1. **Send Message**
+
+```http
+POST /messages
+```
+
+**Body:**
+
+```json
+{
+  "order_id": "uuid-of-order",
+  "sender_id": "uuid-of-sender",
+  "receiver_id": "uuid-of-receiver",
+  "message": "Where is my order?"
+}
+```
+
+➡️ Saves the message in DB only if the **order status != DELIVERED**.
+If order is delivered → reject with `403 Chat Closed`.
+
+---
+
+2. **Fetch Messages**
+
+```http
+GET /messages/:order_id
+```
+
+Returns all messages related to that order:
+
+```json
+[
+  {
+    "id": "msg-uuid",
+    "sender_id": "user-uuid",
+    "receiver_id": "partner-uuid",
+    "message": "Order confirmed!",
+    "sent_at": "2025-08-27T09:15:00Z"
+  }
+]
+```
+
+---
+
+3. **Chat Auto-Close Rule**
+   When `orders.status = 'DELIVERED'`, messages cannot be sent anymore.
+
+* The history can be fetched (for reference).
+* New `POST /messages` → blocked.
+
+---
+
+### **Frontend Behavior (if added later)**
+
+* When user opens “Order Details” → an **Inbox button** appears.
+* Clicking it opens chat (like WhatsApp inside the app).
+* After delivery, the button is disabled → “Chat Closed ✅ Order Delivered.”
+
+---
+
+⚡ This way, **communication is strictly linked to the lifecycle of an order**.
+
+Do you want me to now **write the actual Express.js API code** for this inbox system so you can plug it into your ordering backend?

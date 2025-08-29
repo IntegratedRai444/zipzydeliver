@@ -1,0 +1,167 @@
+📦 Zipzy Ordering System (Detailed)
+
+The ordering system is the core of Zipzy (your delivery app). It handles placing orders, tracking them, processing payments, and notifying users.
+
+🔹 1. User Journey (Step by Step)
+
+Browse & Select
+
+User logs in → browses items/services (canteen food, parcels, books, etc.).
+
+Adds items to cart.
+
+Place Order
+
+User confirms order → provides delivery details (name, room/hostel, contact).
+
+Order saved in database (orders table).
+
+Status = PENDING.
+
+Assign Delivery
+
+Zipzy system (or admin) assigns a delivery person.
+
+Delivery person sees the order on their dashboard.
+
+Status updates to ASSIGNED.
+
+Payment
+
+User pays via:
+
+UPI QR Scan (zipzy’s own QR payment system you planned)
+
+Or COD (Cash on Delivery).
+
+Payment logged in payments table.
+
+Delivery Updates
+
+Delivery person updates order:
+
+OUT_FOR_DELIVERY
+
+DELIVERED
+
+User gets real-time notification.
+
+Completion
+
+Final status = DELIVERED.
+
+User can rate/review delivery.
+
+🔹 2. Database Schema (Core Tables)
+users
+
+id (PK)
+
+name
+
+email
+
+college_id
+
+student_id
+
+password_hash
+
+face_scan (optional biometric login)
+
+orders
+
+id (PK)
+
+user_id (FK → users)
+
+items (JSON of ordered items)
+
+delivery_address
+
+status (PENDING, ASSIGNED, OUT_FOR_DELIVERY, DELIVERED, CANCELLED)
+
+created_at
+
+updated_at
+
+delivery_persons
+
+id (PK)
+
+name
+
+phone
+
+assigned_order_id (nullable, FK → orders)
+
+payments
+
+id (PK)
+
+order_id (FK → orders)
+
+payment_method (UPI, COD)
+
+payment_status (PENDING, PAID, FAILED)
+
+transaction_id
+
+notifications
+
+id (PK)
+
+user_id (FK → users)
+
+message
+
+timestamp
+
+🔹 3. Tech Flow
+
+Frontend (React/Next.js + Tailwind) → user places orders.
+
+Backend (Node.js/Express or Python/FastAPI) → handles API requests.
+
+Database (Postgres on Neon) → stores orders, payments, delivery info.
+
+Realtime Updates (Supabase Realtime / WebSockets) → for live tracking.
+
+Payment Gateway → UPI QR or test gateway.
+
+🔹 4. Example API Endpoints
+
+POST /order → create order
+
+GET /orders/:id → get order details
+
+PUT /orders/:id/status → update status
+
+POST /payment → process payment
+
+GET /delivery/:id → get delivery person assigned
+
+🔹 5. Example Order Lifecycle
+
+User places order →
+
+{
+  "user_id": 1,
+  "items": [{"name": "Burger", "qty": 2}],
+  "delivery_address": "Hostel A, Room 203"
+}
+
+
+→ Status = PENDING
+
+Admin assigns delivery →
+Status = ASSIGNED
+
+Delivery person picks →
+Status = OUT_FOR_DELIVERY
+
+Delivered →
+Status = DELIVERED
+Payment marked as PAID
+
+✅ That’s the Zipzy ordering system — user flow, database, backend, and lifecycle.

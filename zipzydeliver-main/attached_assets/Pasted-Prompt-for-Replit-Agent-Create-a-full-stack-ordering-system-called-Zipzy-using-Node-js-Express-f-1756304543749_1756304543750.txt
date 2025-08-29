@@ -1,0 +1,103 @@
+Prompt for Replit Agent:
+
+Create a full-stack ordering system called Zipzy using Node.js (Express) for backend and Neon PostgreSQL for the database.
+
+Features Required:
+1. Ordering System
+
+POST /order → place a new order with fields:
+
+user_id (UUID)
+
+partner_id (UUID)
+
+item_name (TEXT)
+
+quantity (INTEGER)
+
+status (ENUM: "PENDING", "ACCEPTED", "OUT_FOR_DELIVERY", "DELIVERED")
+
+created_at (TIMESTAMP DEFAULT NOW)
+
+GET /order/:id → fetch order details and status.
+
+PATCH /order/:id/status → update the order status.
+
+2. Order Tracking
+
+A tracking table with:
+
+order_id (UUID FK)
+
+location (TEXT or JSON with lat/long)
+
+updated_at (TIMESTAMP)
+
+Endpoint GET /tracking/:order_id → returns latest partner location.
+
+Endpoint POST /tracking/update → partner updates their live location.
+
+3. Communication (Inbox System)
+
+Create a messages table:
+
+id (UUID)
+
+order_id (UUID FK)
+
+sender_id (UUID)
+
+receiver_id (UUID)
+
+message (TEXT)
+
+sent_at (TIMESTAMP DEFAULT NOW)
+
+POST /messages → send message between user and partner.
+
+GET /messages/:order_id → fetch all chat messages related to that order.
+
+Messages are only available while the order status is NOT DELIVERED. After delivery, the chat closes automatically.
+
+4. Database Schema (Neon PostgreSQL)
+CREATE TABLE users (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  email TEXT UNIQUE NOT NULL
+);
+
+CREATE TABLE partners (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  phone TEXT UNIQUE NOT NULL
+);
+
+CREATE TABLE orders (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES users(id),
+  partner_id UUID REFERENCES partners(id),
+  item_name TEXT NOT NULL,
+  quantity INT NOT NULL,
+  status TEXT CHECK (status IN ('PENDING','ACCEPTED','OUT_FOR_DELIVERY','DELIVERED')),
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE tracking (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  order_id UUID REFERENCES orders(id),
+  location JSONB,
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE messages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  order_id UUID REFERENCES orders(id),
+  sender_id UUID,
+  receiver_id UUID,
+  message TEXT,
+  sent_at TIMESTAMP DEFAULT NOW()
+);
+
+5. Environment Setup
+
+Store database credentials in .env file as:
