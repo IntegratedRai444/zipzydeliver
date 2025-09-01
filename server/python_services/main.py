@@ -1,420 +1,400 @@
-from fastapi import FastAPI, HTTPException, BackgroundTasks, Depends
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.security import HTTPBearer
-from pydantic import BaseModel
-from typing import List, Dict, Any, Optional
-import uvicorn
-import asyncio
+from flask import Flask, request, jsonify
+from flask_cors import CORS
 import json
-import logging
+import random
 from datetime import datetime, timedelta
 
-# Import all services
-from services.demand_prediction import DemandPredictionService
-from services.route_optimization import RouteOptimizationService
-from services.nlp_service import NLPService
-from services.analytics_service import AnalyticsService
-from services.recommendation_service import RecommendationService
-from services.fraud_detection import FraudDetectionService
-from services.weather_service import WeatherService
-from services.traffic_service import TrafficService
-from services.inventory_service import InventoryService
-from services.pricing_service import PricingService
-from services.customer_service import CustomerService
-from services.operational_service import OperationalService
-from services.financial_service import FinancialService
-from services.marketing_service import MarketingService
-from services.security_service import SecurityService
+app = Flask(__name__)
+CORS(app)
 
-# Initialize FastAPI app
-app = FastAPI(
-    title="Zipzy Python AI Services",
-    description="Advanced AI/ML services for delivery optimization",
-    version="2.0.0",
-    docs_url="/docs",
-    redoc_url="/redoc"
-)
-
-# CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:5173"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# Security
-security = HTTPBearer()
-
-# Initialize all services
-demand_service = DemandPredictionService()
-route_service = RouteOptimizationService()
-nlp_service = NLPService()
-analytics_service = AnalyticsService()
-recommendation_service = RecommendationService()
-fraud_service = FraudDetectionService()
-weather_service = WeatherService()
-traffic_service = TrafficService()
-inventory_service = InventoryService()
-pricing_service = PricingService()
-customer_service = CustomerService()
-operational_service = OperationalService()
-financial_service = FinancialService()
-marketing_service = MarketingService()
-security_service = SecurityService()
-
-# Data models
-class OrderData(BaseModel):
-    order_id: str
-    customer_id: str
-    items: List[Dict]
-    delivery_address: Dict
-    payment_method: str
-    timestamp: str
-
-class PredictionRequest(BaseModel):
-    data: Dict[str, Any]
-    model_type: str
-    features: List[str]
-
-# Health check
-@app.get("/health")
-async def health_check():
+# Mock AI responses for development
+def mock_ai_response(data=None, confidence=0.85):
     return {
-        "status": "healthy",
-        "timestamp": datetime.now().isoformat(),
-        "services": {
-            "demand_prediction": "active",
-            "route_optimization": "active",
-            "nlp_service": "active",
-            "analytics_service": "active",
-            "recommendation_service": "active",
-            "fraud_detection": "active",
-            "weather_service": "active",
-            "traffic_service": "active",
-            "inventory_service": "active",
-            "pricing_service": "active",
-            "customer_service": "active",
-            "operational_service": "active",
-            "financial_service": "active",
-            "marketing_service": "active",
-            "security_service": "active"
-        }
+        "success": True,
+        "data": data or {"result": "Mock AI response"},
+        "confidence": confidence,
+        "timestamp": datetime.now().isoformat()
     }
 
+@app.route('/health', methods=['GET'])
+def health_check():
+    return jsonify({
+        "status": "healthy",
+        "service": "Python AI Services",
+        "timestamp": datetime.now().isoformat()
+    })
+
 # Demand Prediction Endpoints
-@app.post("/predict/daily-demand")
-async def predict_daily_demand(data: Dict[str, Any]):
-    """Predict daily order demand"""
-    try:
-        prediction = await demand_service.predict_daily_demand(data)
-        return {"prediction": prediction, "confidence": 0.95}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+@app.route('/predict/daily-demand', methods=['POST'])
+def predict_daily_demand():
+    data = request.json
+    prediction = {
+        "predicted_orders": random.randint(50, 200),
+        "confidence": 0.87,
+        "factors": ["weather", "day_of_week", "historical_data"]
+    }
+    return jsonify(mock_ai_response(prediction))
 
-@app.post("/predict/hourly-demand")
-async def predict_hourly_demand(data: Dict[str, Any]):
-    """Predict hourly order demand"""
-    try:
-        prediction = await demand_service.predict_hourly_demand(data)
-        return {"prediction": prediction, "confidence": 0.92}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+@app.route('/predict/hourly-demand', methods=['POST'])
+def predict_hourly_demand():
+    data = request.json
+    hourly_predictions = [random.randint(5, 25) for _ in range(24)]
+    prediction = {
+        "hourly_predictions": hourly_predictions,
+        "peak_hours": [12, 13, 18, 19],
+        "confidence": 0.82
+    }
+    return jsonify(mock_ai_response(prediction))
 
-@app.post("/predict/weather-impact")
-async def predict_weather_impact(data: Dict[str, Any]):
-    """Predict weather impact on orders"""
-    try:
-        impact = await demand_service.predict_weather_impact(data)
-        return {"impact": impact, "confidence": 0.88}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+@app.route('/predict/weather-impact', methods=['POST'])
+def predict_weather_impact():
+    data = request.json
+    impact = {
+        "demand_change_percent": random.uniform(-20, 30),
+        "weather_factor": data.get("weather", "sunny"),
+        "confidence": 0.79
+    }
+    return jsonify(mock_ai_response(impact))
 
 # Route Optimization Endpoints
-@app.post("/optimize/route")
-async def optimize_delivery_route(data: Dict[str, Any]):
-    """Optimize delivery route"""
-    try:
-        route = await route_service.optimize_delivery_route(data)
-        return {"route": route, "efficiency": 0.94}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+@app.route('/optimize/route', methods=['POST'])
+def optimize_delivery_route():
+    data = request.json
+    optimization = {
+        "optimized_route": ["point_a", "point_b", "point_c"],
+        "total_distance": random.uniform(10, 50),
+        "estimated_time": random.uniform(30, 120),
+        "confidence": 0.91
+    }
+    return jsonify(mock_ai_response(optimization))
 
-@app.post("/optimize/partner-assignment")
-async def optimize_partner_assignment(data: Dict[str, Any]):
-    """Optimize delivery partner assignment"""
-    try:
-        assignment = await route_service.assign_orders_to_partners(data)
-        return {"assignment": assignment, "efficiency": 0.91}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+@app.route('/optimize/partner-assignment', methods=['POST'])
+def optimize_partner_assignment():
+    data = request.json
+    assignment = {
+        "optimizedPartners": [
+            {"partnerId": "partner1", "score": 0.95},
+            {"partnerId": "partner2", "score": 0.87}
+        ],
+        "assignment_score": 0.91,
+        "confidence": 0.88
+    }
+    return jsonify(mock_ai_response(assignment))
 
 # NLP Service Endpoints
-@app.post("/nlp/analyze-feedback")
-async def analyze_customer_feedback(data: Dict[str, Any]):
-    """Analyze customer feedback sentiment"""
-    try:
-        analysis = await nlp_service.analyze_customer_feedback(data["feedback"])
-        return {"analysis": analysis, "confidence": 0.89}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+@app.route('/nlp/analyze-feedback', methods=['POST'])
+def analyze_customer_feedback():
+    data = request.json
+    feedback = data.get("feedback", "")
+    analysis = {
+        "sentiment": "positive" if "good" in feedback.lower() else "neutral",
+        "sentiment_score": random.uniform(0.6, 0.9),
+        "key_topics": ["service", "delivery", "food"],
+        "confidence": 0.85
+    }
+    return jsonify(mock_ai_response(analysis))
 
-@app.post("/nlp/generate-response")
-async def generate_smart_response(data: Dict[str, Any]):
-    """Generate intelligent response"""
-    try:
-        response = await nlp_service.generate_smart_response(data["query"], data["context"])
-        return {"response": response, "confidence": 0.87}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+@app.route('/nlp/generate-response', methods=['POST'])
+def generate_smart_response():
+    data = request.json
+    response = {
+        "response": "Thank you for your feedback. We appreciate your input and will use it to improve our service.",
+        "response_type": "acknowledgment",
+        "confidence": 0.92
+    }
+    return jsonify(mock_ai_response(response))
 
 # Analytics Service Endpoints
-@app.post("/analytics/daily-report")
-async def generate_daily_report(data: Dict[str, Any]):
-    """Generate daily analytics report"""
-    try:
-        report = await analytics_service.generate_daily_report(data)
-        return {"report": report, "generated_at": datetime.now().isoformat()}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+@app.route('/analytics/daily-report', methods=['POST'])
+def generate_daily_report():
+    data = request.json
+    report = {
+        "total_orders": random.randint(100, 500),
+        "revenue": random.uniform(5000, 15000),
+        "avg_order_value": random.uniform(25, 45),
+        "top_products": ["pizza", "burger", "salad"],
+        "confidence": 0.95
+    }
+    return jsonify(mock_ai_response(report))
 
-@app.post("/analytics/customer-segments")
-async def analyze_customer_segments(data: Dict[str, Any]):
-    """Analyze customer segments"""
-    try:
-        segments = await analytics_service.analyze_customer_segments(data)
-        return {"segments": segments, "confidence": 0.93}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+@app.route('/analytics/customer-segments', methods=['POST'])
+def analyze_customer_segments():
+    data = request.json
+    segments = {
+        "segments": [
+            {"name": "High Value", "count": 150, "avg_order": 45.50},
+            {"name": "Regular", "count": 300, "avg_order": 25.30},
+            {"name": "Occasional", "count": 200, "avg_order": 15.20}
+        ],
+        "confidence": 0.88
+    }
+    return jsonify(mock_ai_response(segments))
 
 # Recommendation Service Endpoints
-@app.post("/recommend/products")
-async def recommend_products(data: Dict[str, Any]):
-    """Recommend products to customer"""
-    try:
-        recommendations = await recommendation_service.recommend_products(data)
-        return {"recommendations": recommendations, "confidence": 0.90}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+@app.route('/recommend/products', methods=['POST'])
+def recommend_products():
+    data = request.json
+    recommendations = {
+        "recommended_products": [
+            {"id": "prod1", "name": "Margherita Pizza", "score": 0.95},
+            {"id": "prod2", "name": "Chicken Burger", "score": 0.87},
+            {"id": "prod3", "name": "Caesar Salad", "score": 0.82}
+        ],
+        "confidence": 0.89
+    }
+    return jsonify(mock_ai_response(recommendations))
 
-@app.post("/recommend/delivery-times")
-async def recommend_delivery_times(data: Dict[str, Any]):
-    """Recommend optimal delivery times"""
-    try:
-        times = await recommendation_service.recommend_delivery_times(data)
-        return {"times": times, "confidence": 0.88}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+@app.route('/recommend/delivery-times', methods=['POST'])
+def recommend_delivery_times():
+    data = request.json
+    recommendations = {
+        "recommended_times": [
+            {"time": "30-45 min", "score": 0.92},
+            {"time": "45-60 min", "score": 0.85},
+            {"time": "60-90 min", "score": 0.78}
+        ],
+        "confidence": 0.86
+    }
+    return jsonify(mock_ai_response(recommendations))
 
 # Fraud Detection Endpoints
-@app.post("/fraud/detect-fake-orders")
-async def detect_fake_orders(data: Dict[str, Any]):
-    """Detect fraudulent orders"""
-    try:
-        fraud_score = await fraud_service.detect_fake_orders(data)
-        return {"fraud_score": fraud_score, "is_fraudulent": fraud_score > 0.7}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+@app.route('/fraud/detect-fake-orders', methods=['POST'])
+def detect_fake_orders():
+    data = request.json
+    fraud_check = {
+        "is_fraudulent": random.choice([True, False]),
+        "fraud_score": random.uniform(0.1, 0.9),
+        "risk_factors": ["unusual_pattern", "location_mismatch"],
+        "confidence": 0.94
+    }
+    return jsonify(mock_ai_response(fraud_check))
 
-@app.post("/fraud/detect-payment-fraud")
-async def detect_payment_fraud(data: Dict[str, Any]):
-    """Detect payment fraud"""
-    try:
-        fraud_score = await fraud_service.detect_payment_fraud(data)
-        return {"fraud_score": fraud_score, "is_fraudulent": fraud_score > 0.7}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+@app.route('/fraud/detect-payment-fraud', methods=['POST'])
+def detect_payment_fraud():
+    data = request.json
+    fraud_check = {
+        "is_fraudulent": random.choice([True, False]),
+        "fraud_score": random.uniform(0.1, 0.9),
+        "risk_factors": ["card_mismatch", "unusual_amount"],
+        "confidence": 0.96
+    }
+    return jsonify(mock_ai_response(fraud_check))
 
 # Weather Service Endpoints
-@app.post("/weather/forecast")
-async def get_weather_forecast(data: Dict[str, Any]):
-    """Get weather forecast for delivery planning"""
-    try:
-        forecast = await weather_service.get_weather_forecast(data["location"])
-        return {"forecast": forecast, "updated_at": datetime.now().isoformat()}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+@app.route('/weather/forecast', methods=['POST'])
+def get_weather_forecast():
+    data = request.json
+    forecast = {
+        "location": data.get("location", "unknown"),
+        "forecast": "sunny",
+        "temperature": random.uniform(15, 30),
+        "confidence": 0.85
+    }
+    return jsonify(mock_ai_response(forecast))
 
-@app.post("/weather/impact-analysis")
-async def analyze_weather_impact(data: Dict[str, Any]):
-    """Analyze weather impact on delivery"""
-    try:
-        impact = await weather_service.analyze_weather_impact(data)
-        return {"impact": impact, "confidence": 0.85}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+@app.route('/weather/impact-analysis', methods=['POST'])
+def analyze_weather_impact():
+    data = request.json
+    impact = {
+        "demand_impact": random.uniform(-15, 25),
+        "delivery_impact": random.uniform(-10, 20),
+        "confidence": 0.82
+    }
+    return jsonify(mock_ai_response(impact))
 
 # Traffic Service Endpoints
-@app.post("/traffic/conditions")
-async def get_traffic_conditions(data: Dict[str, Any]):
-    """Get real-time traffic conditions"""
-    try:
-        conditions = await traffic_service.get_traffic_conditions(data["route"])
-        return {"conditions": conditions, "updated_at": datetime.now().isoformat()}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+@app.route('/traffic/conditions', methods=['POST'])
+def get_traffic_conditions():
+    data = request.json
+    conditions = {
+        "route": data.get("route", "unknown"),
+        "traffic_level": random.choice(["low", "medium", "high"]),
+        "estimated_delay": random.uniform(5, 30),
+        "confidence": 0.88
+    }
+    return jsonify(mock_ai_response(conditions))
 
-@app.post("/traffic/predict-patterns")
-async def predict_traffic_patterns(data: Dict[str, Any]):
-    """Predict traffic patterns"""
-    try:
-        patterns = await traffic_service.predict_traffic_patterns(data)
-        return {"patterns": patterns, "confidence": 0.86}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+@app.route('/traffic/predict-patterns', methods=['POST'])
+def predict_traffic_patterns():
+    data = request.json
+    patterns = {
+        "peak_hours": [8, 9, 17, 18],
+        "congestion_areas": ["downtown", "highway_exit"],
+        "confidence": 0.85
+    }
+    return jsonify(mock_ai_response(patterns))
 
 # Inventory Service Endpoints
-@app.post("/inventory/predict-stock")
-async def predict_stock_needs(data: Dict[str, Any]):
-    """Predict inventory stock needs"""
-    try:
-        prediction = await inventory_service.predict_stock_needs(data)
-        return {"prediction": prediction, "confidence": 0.89}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+@app.route('/inventory/predict-stock', methods=['POST'])
+def predict_stock_needs():
+    data = request.json
+    prediction = {
+        "predicted_stock": random.randint(100, 500),
+        "reorder_point": random.randint(50, 100),
+        "confidence": 0.87
+    }
+    return jsonify(mock_ai_response(prediction))
 
-@app.post("/inventory/optimize-reorder")
-async def optimize_reorder_points(data: Dict[str, Any]):
-    """Optimize reorder points"""
-    try:
-        optimization = await inventory_service.optimize_reorder_points(data)
-        return {"optimization": optimization, "confidence": 0.91}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+@app.route('/inventory/optimize-reorder', methods=['POST'])
+def optimize_reorder_points():
+    data = request.json
+    optimization = {
+        "optimal_reorder_point": random.randint(50, 150),
+        "safety_stock": random.randint(20, 50),
+        "confidence": 0.89
+    }
+    return jsonify(mock_ai_response(optimization))
 
 # Pricing Service Endpoints
-@app.post("/pricing/dynamic-pricing")
-async def dynamic_pricing(data: Dict[str, Any]):
-    """Calculate dynamic pricing"""
-    try:
-        pricing = await pricing_service.dynamic_pricing(data)
-        return {"pricing": pricing, "confidence": 0.87}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+@app.route('/pricing/dynamic-pricing', methods=['POST'])
+def calculate_dynamic_pricing():
+    data = request.json
+    pricing = {
+        "base_price": random.uniform(10, 30),
+        "dynamic_price": random.uniform(12, 35),
+        "price_factor": random.uniform(0.8, 1.3),
+        "confidence": 0.86
+    }
+    return jsonify(mock_ai_response(pricing))
 
-@app.post("/pricing/demand-based")
-async def demand_based_pricing(data: Dict[str, Any]):
-    """Calculate demand-based pricing"""
-    try:
-        pricing = await pricing_service.demand_based_pricing(data)
-        return {"pricing": pricing, "confidence": 0.89}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+@app.route('/pricing/demand-based', methods=['POST'])
+def calculate_demand_based_pricing():
+    data = request.json
+    pricing = {
+        "demand_level": random.choice(["low", "medium", "high"]),
+        "price_adjustment": random.uniform(-10, 15),
+        "confidence": 0.84
+    }
+    return jsonify(mock_ai_response(pricing))
 
 # Customer Service Endpoints
-@app.post("/customer/churn-prediction")
-async def predict_customer_churn(data: Dict[str, Any]):
-    """Predict customer churn risk"""
-    try:
-        churn_risk = await customer_service.customer_churn_prediction(data)
-        return {"churn_risk": churn_risk, "confidence": 0.88}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+@app.route('/customer/churn-prediction', methods=['POST'])
+def predict_customer_churn():
+    data = request.json
+    churn = {
+        "churn_risk": random.uniform(0.1, 0.8),
+        "risk_level": random.choice(["low", "medium", "high"]),
+        "confidence": 0.88
+    }
+    return jsonify(mock_ai_response(churn))
 
-@app.post("/customer/satisfaction-analysis")
-async def analyze_customer_satisfaction(data: Dict[str, Any]):
-    """Analyze customer satisfaction"""
-    try:
-        satisfaction = await customer_service.customer_satisfaction_analysis(data)
-        return {"satisfaction": satisfaction, "confidence": 0.90}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+@app.route('/customer/satisfaction-analysis', methods=['POST'])
+def analyze_customer_satisfaction():
+    data = request.json
+    satisfaction = {
+        "satisfaction_score": random.uniform(3.5, 5.0),
+        "key_factors": ["delivery_speed", "food_quality", "service"],
+        "confidence": 0.85
+    }
+    return jsonify(mock_ai_response(satisfaction))
 
 # Operational Service Endpoints
-@app.post("/operational/staff-scheduling")
-async def optimize_staff_scheduling(data: Dict[str, Any]):
-    """Optimize staff scheduling"""
-    try:
-        schedule = await operational_service.staff_scheduling_optimization(data)
-        return {"schedule": schedule, "efficiency": 0.92}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+@app.route('/operational/staff-scheduling', methods=['POST'])
+def optimize_staff_scheduling():
+    data = request.json
+    scheduling = {
+        "optimal_staff_count": random.randint(5, 15),
+        "shift_recommendations": ["morning", "afternoon", "evening"],
+        "confidence": 0.87
+    }
+    return jsonify(mock_ai_response(scheduling))
 
-@app.post("/operational/maintenance-prediction")
-async def predict_equipment_maintenance(data: Dict[str, Any]):
-    """Predict equipment maintenance needs"""
-    try:
-        maintenance = await operational_service.equipment_maintenance_prediction(data)
-        return {"maintenance": maintenance, "confidence": 0.85}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+@app.route('/operational/maintenance-prediction', methods=['POST'])
+def predict_equipment_maintenance():
+    data = request.json
+    maintenance = {
+        "maintenance_needed": random.choice([True, False]),
+        "next_maintenance_date": (datetime.now() + timedelta(days=random.randint(1, 30))).isoformat(),
+        "confidence": 0.89
+    }
+    return jsonify(mock_ai_response(maintenance))
 
 # Financial Service Endpoints
-@app.post("/financial/revenue-forecast")
-async def forecast_revenue(data: Dict[str, Any]):
-    """Forecast revenue"""
-    try:
-        forecast = await financial_service.revenue_forecasting(data)
-        return {"forecast": forecast, "confidence": 0.87}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+@app.route('/financial/revenue-forecast', methods=['POST'])
+def forecast_revenue():
+    data = request.json
+    forecast = {
+        "predicted_revenue": random.uniform(50000, 150000),
+        "growth_rate": random.uniform(-5, 20),
+        "confidence": 0.86
+    }
+    return jsonify(mock_ai_response(forecast))
 
-@app.post("/financial/cost-optimization")
-async def optimize_costs(data: Dict[str, Any]):
-    """Optimize operational costs"""
-    try:
-        optimization = await financial_service.cost_optimization(data)
-        return {"optimization": optimization, "confidence": 0.89}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+@app.route('/financial/cost-optimization', methods=['POST'])
+def optimize_costs():
+    data = request.json
+    optimization = {
+        "cost_savings": random.uniform(1000, 10000),
+        "optimization_areas": ["inventory", "staffing", "delivery"],
+        "confidence": 0.88
+    }
+    return jsonify(mock_ai_response(optimization))
 
 # Marketing Service Endpoints
-@app.post("/marketing/campaign-effectiveness")
-async def analyze_campaign_effectiveness(data: Dict[str, Any]):
-    """Analyze marketing campaign effectiveness"""
-    try:
-        effectiveness = await marketing_service.campaign_effectiveness_analysis(data)
-        return {"effectiveness": effectiveness, "confidence": 0.86}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+@app.route('/marketing/campaign-effectiveness', methods=['POST'])
+def analyze_campaign_effectiveness():
+    data = request.json
+    effectiveness = {
+        "effectiveness_score": random.uniform(0.6, 0.95),
+        "roi": random.uniform(1.5, 4.0),
+        "confidence": 0.85
+    }
+    return jsonify(mock_ai_response(effectiveness))
 
-@app.post("/marketing/customer-segmentation")
-async def segment_customers(data: Dict[str, Any]):
-    """Segment customers for marketing"""
-    try:
-        segments = await marketing_service.customer_segmentation(data)
-        return {"segments": segments, "confidence": 0.91}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+@app.route('/marketing/customer-segmentation', methods=['POST'])
+def segment_customers():
+    data = request.json
+    segments = {
+        "segments": [
+            {"name": "Premium", "size": 100, "value": "high"},
+            {"name": "Regular", "size": 300, "value": "medium"},
+            {"name": "Occasional", "size": 200, "value": "low"}
+        ],
+        "confidence": 0.87
+    }
+    return jsonify(mock_ai_response(segments))
 
 # Security Service Endpoints
-@app.post("/security/anomaly-detection")
-async def detect_anomalies(data: Dict[str, Any]):
-    """Detect security anomalies"""
-    try:
-        anomalies = await security_service.anomaly_detection(data)
-        return {"anomalies": anomalies, "confidence": 0.94}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+@app.route('/security/anomaly-detection', methods=['POST'])
+def detect_anomalies():
+    data = request.json
+    anomalies = {
+        "anomalies_detected": random.randint(0, 5),
+        "risk_level": random.choice(["low", "medium", "high"]),
+        "confidence": 0.92
+    }
+    return jsonify(mock_ai_response(anomalies))
 
-@app.post("/security/access-pattern-analysis")
-async def analyze_access_patterns(data: Dict[str, Any]):
-    """Analyze access patterns"""
-    try:
-        patterns = await security_service.access_pattern_analysis(data)
-        return {"patterns": patterns, "confidence": 0.88}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+@app.route('/security/access-pattern-analysis', methods=['POST'])
+def analyze_access_patterns():
+    data = request.json
+    patterns = {
+        "suspicious_patterns": random.randint(0, 3),
+        "risk_score": random.uniform(0.1, 0.8),
+        "confidence": 0.89
+    }
+    return jsonify(mock_ai_response(patterns))
 
 # Batch Processing Endpoints
-@app.post("/batch/process-orders")
-async def process_orders_batch(background_tasks: BackgroundTasks, data: Dict[str, Any]):
-    """Process orders in batch"""
-    try:
-        background_tasks.add_task(analytics_service.process_batch_orders, data)
-        return {"message": "Batch processing started", "job_id": "batch_001"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+@app.route('/batch/process-orders', methods=['POST'])
+def process_orders_batch():
+    data = request.json
+    result = {
+        "processed_orders": random.randint(50, 200),
+        "success_rate": random.uniform(0.95, 0.99),
+        "confidence": 0.94
+    }
+    return jsonify(mock_ai_response(result))
 
-@app.post("/batch/generate-reports")
-async def generate_reports_batch(background_tasks: BackgroundTasks, data: Dict[str, Any]):
-    """Generate reports in batch"""
-    try:
-        background_tasks.add_task(analytics_service.generate_batch_reports, data)
-        return {"message": "Report generation started", "job_id": "reports_001"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+@app.route('/batch/generate-reports', methods=['POST'])
+def generate_reports_batch():
+    data = request.json
+    result = {
+        "reports_generated": random.randint(5, 20),
+        "processing_time": random.uniform(10, 60),
+        "confidence": 0.96
+    }
+    return jsonify(mock_ai_response(result))
 
-if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=8000, debug=True)

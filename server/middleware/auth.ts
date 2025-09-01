@@ -1,62 +1,96 @@
 import { Request, Response, NextFunction } from 'express';
 
-interface AuthenticatedRequest extends Request {
-  session?: {
-    userId?: string;
+export interface AuthenticatedRequest extends Request {
+  session: any;
+  user?: {
+    id: string;
+    email: string;
+    role: 'user' | 'admin';
   };
 }
 
-/**
- * Simple authentication middleware
- * In production, you'd want to implement proper JWT or session-based auth
- */
-export const authenticateToken = (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+export function authenticateToken(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   try {
-    // Check if user is authenticated via session
-    if (req.session?.userId) {
-      // User is authenticated, proceed
-      next();
-    } else {
-      // For development/testing, allow requests without auth
-      // In production, you'd want to return 401 here
-      console.warn('No authentication found, allowing request for development');
-      next();
+    if (!req.session || !req.session.userId) {
+      return res.status(401).json({ 
+        success: false, 
+        error: 'Authentication required' 
+      });
     }
-  } catch (error) {
-    console.error('Authentication error:', error);
-    // For development, allow requests even if auth fails
-    // In production, you'd want to return 401 here
-    next();
-  }
-};
 
-/**
- * Admin-only authentication middleware
- */
-export const authenticateAdmin = (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-  try {
-    if (req.session?.userId) {
-      // In production, you'd check if the user has admin role
-      // For now, allow all authenticated users
-      next();
-    } else {
-      res.status(401).json({ error: 'Admin access required' });
+    // Get user from storage
+    const user = req.app.locals.storage.getUserById(req.session.userId);
+    if (!user) {
+      return res.status(401).json({ 
+        success: false, 
+        error: 'User not found' 
+      });
     }
+
+    req.user = {
+      id: user.id,
+      email: user.email,
+      role: user.role || 'user'
+    };
+
+    next();
+  } catch (error: any) {
+    console.error('Authentication error:', error);
+    return res.status(500).json({ 
+      success: false, 
+      error: 'Authentication failed' 
+    });
+  }
+}
+
+export function authenticateAdmin(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  try {
+    if (!req.session || !req.session.userId) {
+      return res.status(401).json({ 
+        success: false, 
+        error: 'Authentication required' 
+      });
+    }
+
+    const user = req.app.locals.storage.getUserById(req.session.userId);
+    if (!user || user.role !== 'admin') {
+      return res.status(403).json({ 
+        success: false, 
+        error: 'Admin access required' 
+      });
+    }
+
+    req.user = {
+      id: user.id,
+      email: user.email,
+      role: 'admin'
+    };
+
+    next();
   } catch (error) {
     console.error('Admin authentication error:', error);
-    res.status(500).json({ error: 'Authentication failed' });
+    return res.status(500).json({ 
+      success: false, 
+      error: 'Admin authentication failed' 
+    });
   }
-};
+}
 
-/**
- * Optional authentication - doesn't block requests
- */
-export const optionalAuth = (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+export function optionalAuth(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   try {
-    // Always allow the request to proceed
+    if (req.session && req.session.userId) {
+      const user = req.app.locals.storage.getUserById(req.session.userId);
+      if (user) {
+        req.user = {
+          id: user.id,
+          email: user.email,
+          role: user.role || 'user'
+        };
+      }
+    }
     next();
   } catch (error) {
-    console.error('Optional auth error:', error);
+    // Continue without user context
     next();
   }
-};
+}

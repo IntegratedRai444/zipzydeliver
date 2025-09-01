@@ -1,388 +1,193 @@
 import { Server as HTTPServer } from 'http';
-import { Server as WebSocketServer, Socket } from 'ws';
-import { storage } from '../storage';
+import { WebSocketServer, WebSocket } from 'ws';
+import { getAvailablePort } from '../utils/portUtils';
 
-export interface WebSocketMessage {
-  type: 'partner_matched' | 'order_status_update' | 'location_update' | 'dispatch_expired' | 'order_accepted';
-  data: any;
-  timestamp: number;
+interface WebSocketConnection {
+  id: string;
+  ws: WebSocket;
+  userId?: string;
+  isPartner?: boolean;
+  connectedAt: Date;
+  lastActivity: Date;
 }
 
-export interface ConnectedPartner {
-  partnerId: string;
-  socket: Socket;
-  isOnline: boolean;
-  lastPing: number;
-}
-
-export interface ConnectedUser {
-  userId: string;
-  socket: Socket;
-  lastPing: number;
-}
-
-/**
- * WebSocket Service for real-time communication
- * Handles partner matching, order updates, and location tracking
- */
-export class WebSocketService {
-  private static instance: WebSocketService;
+class WebSocketService {
   private wss: WebSocketServer | null = null;
-  private connectedPartners: Map<string, ConnectedPartner> = new Map();
-  private connectedUsers: Map<string, ConnectedUser> = new Map();
-  private partnerSubscriptions: Map<string, Set<string>> = new Map(); // orderId -> Set<partnerId>
-  private userSubscriptions: Map<string, Set<string>> = new Map(); // orderId -> Set<userId>
+  private connections: Map<string, WebSocketConnection> = new Map();
+  private port: number = 24678;
 
-  static getInstance(): WebSocketService {
-    if (!WebSocketService.instance) {
-      WebSocketService.instance = new WebSocketService();
+  async initialize(server: HTTPServer): Promise<void> {
+    try {
+      // Try to get an available port
+      this.port = await getAvailablePort(24678, 10);
+      
+      this.wss = new WebSocketServer({ 
+        server
+      });
+
+      this.wss.on('connection', (ws: WebSocket, req: any) => {
+        const connectionId = this.generateConnectionId();
+        const connection: WebSocketConnection = {
+          id: connectionId,
+          ws,
+          connectedAt: new Date(),
+          lastActivity: new Date()
+        };
+
+        this.connections.set(connectionId, connection);
+
+        console.log(`🔌 WebSocket connected: ${connectionId}`);
+
+        ws.on('message', (data: Buffer) => {
+          try {
+            const message = JSON.parse(data.toString());
+            this.handleMessage(connectionId, message);
+            connection.lastActivity = new Date();
+          } catch (error) {
+            console.error('WebSocket message error:', error);
+          }
+        });
+
+        ws.on('close', () => {
+          this.connections.delete(connectionId);
+          console.log(`🔌 WebSocket disconnected: ${connectionId}`);
+        });
+
+        ws.on('error', (error) => {
+          console.error(`WebSocket error for ${connectionId}:`, error);
+          this.connections.delete(connectionId);
+        });
+
+        // Send welcome message
+        ws.send(JSON.stringify({
+          type: 'connected',
+          connectionId,
+          timestamp: new Date().toISOString()
+        }));
+      });
+
+      console.log(`✅ WebSocket server initialized on port ${this.port}`);
+    } catch (error) {
+      console.error('❌ Failed to initialize WebSocket server:', error);
+      // Continue without WebSocket functionality
     }
-    return WebSocketService.instance;
   }
 
-  /**
-   * Initialize WebSocket server
-   */
-  initialize(server: HTTPServer): void {
-    this.wss = new WebSocketServer({ server });
-    
-    this.wss.on('connection', (socket: Socket) => {
-      this.handleConnection(socket);
-    });
-
-    console.log('WebSocket server initialized');
+  private generateConnectionId(): string {
+    return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
   }
 
-  /**
-   * Handle new WebSocket connections
-   */
-  private handleConnection(socket: Socket): void {
-    console.log('New WebSocket connection established');
+  private handleMessage(connectionId: string, message: any): void {
+    const connection = this.connections.get(connectionId);
+    if (!connection) return;
 
-    // Handle partner authentication
-    socket.on('message', async (message: string) => {
-      try {
-        const data = JSON.parse(message);
-        
-        switch (data.type) {
-          case 'partner_auth':
-            await this.authenticatePartner(socket, data.partnerId);
-            break;
-          case 'user_auth':
-            await this.authenticateUser(socket, data.userId);
-            break;
-          case 'subscribe_order':
-            this.subscribeToOrder(data.orderId, data.userId || data.partnerId, data.isPartner);
-            break;
-          case 'ping':
-            this.handlePing(socket, data.userId || data.partnerId, data.isPartner);
-            break;
+    switch (message.type) {
+      case 'ping':
+        connection.ws.send(JSON.stringify({ type: 'pong', timestamp: new Date().toISOString() }));
+        break;
+      
+      case 'auth':
+        if (message.userId) {
+          connection.userId = message.userId;
+          connection.ws.send(JSON.stringify({ 
+            type: 'auth_success', 
+            userId: message.userId 
+          }));
         }
-      } catch (error) {
-        console.error('WebSocket message error:', error);
-      }
-    });
-
-    // Handle disconnection
-    socket.on('close', () => {
-      this.handleDisconnection(socket);
-    });
-
-    // Handle errors
-    socket.on('error', (error) => {
-      console.error('WebSocket error:', error);
-      this.handleDisconnection(socket);
-    });
-  }
-
-  /**
-   * Authenticate delivery partner
-   */
-  private async authenticatePartner(socket: Socket, partnerId: string): Promise<void> {
-    try {
-      const partner = await storage.getUser(partnerId);
-      if (!partner) {
-        socket.send(JSON.stringify({
-          type: 'auth_error',
-          message: 'Partner not found'
-        }));
-        return;
-      }
-
-      // Store connected partner
-      this.connectedPartners.set(partnerId, {
-        partnerId,
-        socket,
-        isOnline: true,
-        lastPing: Date.now()
-      });
-
-      // Update partner online status in database
-      await storage.updatePartnerOnlineStatus(partnerId, true);
-
-      socket.send(JSON.stringify({
-        type: 'partner_auth_success',
-        partnerId,
-        message: 'Partner authenticated successfully'
-      }));
-
-      console.log(`Partner ${partnerId} authenticated and connected`);
-    } catch (error) {
-      console.error('Partner authentication error:', error);
-      socket.send(JSON.stringify({
-        type: 'auth_error',
-        message: 'Authentication failed'
-      }));
-    }
-  }
-
-  /**
-   * Authenticate user
-   */
-  private async authenticateUser(socket: Socket, userId: string): Promise<void> {
-    try {
-      const user = await storage.getUser(userId);
-      if (!user) {
-        socket.send(JSON.stringify({
-          type: 'auth_error',
-          message: 'User not found'
-        }));
-        return;
-      }
-
-      // Store connected user
-      this.connectedUsers.set(userId, {
-        userId,
-        socket,
-        lastPing: Date.now()
-      });
-
-      socket.send(JSON.stringify({
-        type: 'user_auth_success',
-        userId,
-        message: 'User authenticated successfully'
-      }));
-
-      console.log(`User ${userId} authenticated and connected`);
-    } catch (error) {
-      console.error('User authentication error:', error);
-      socket.send(JSON.stringify({
-        type: 'auth_error',
-        message: 'Authentication failed'
-      }));
-    }
-  }
-
-  /**
-   * Subscribe to order updates
-   */
-  private subscribeToOrder(orderId: string, id: string, isPartner: boolean): void {
-    if (isPartner) {
-      if (!this.partnerSubscriptions.has(orderId)) {
-        this.partnerSubscriptions.set(orderId, new Set());
-      }
-      this.partnerSubscriptions.get(orderId)!.add(id);
-    } else {
-      if (!this.userSubscriptions.has(orderId)) {
-        this.userSubscriptions.set(orderId, new Set());
-      }
-      this.userSubscriptions.get(orderId)!.add(id);
-    }
-
-    console.log(`${isPartner ? 'Partner' : 'User'} ${id} subscribed to order ${orderId}`);
-  }
-
-  /**
-   * Handle ping messages
-   */
-  private handlePing(socket: Socket, id: string, isPartner: boolean): void {
-    const now = Date.now();
-    
-    if (isPartner) {
-      const partner = this.connectedPartners.get(id);
-      if (partner) {
-        partner.lastPing = now;
-        partner.socket.send(JSON.stringify({ type: 'pong', timestamp: now }));
-      }
-    } else {
-      const user = this.connectedUsers.get(id);
-      if (user) {
-        user.lastPing = now;
-        user.socket.send(JSON.stringify({ type: 'pong', timestamp: now }));
-      }
-    }
-  }
-
-  /**
-   * Handle disconnection
-   */
-  private handleDisconnection(socket: Socket): void {
-    // Remove from connected partners
-    for (const [partnerId, partner] of this.connectedPartners.entries()) {
-      if (partner.socket === socket) {
-        this.connectedPartners.delete(partnerId);
-        storage.updatePartnerOnlineStatus(partnerId, false);
-        console.log(`Partner ${partnerId} disconnected`);
         break;
-      }
-    }
-
-    // Remove from connected users
-    for (const [userId, user] of this.connectedUsers.entries()) {
-      if (user.socket === socket) {
-        this.connectedUsers.delete(userId);
-        console.log(`User ${userId} disconnected`);
+      
+      case 'partner_auth':
+        if (message.partnerId) {
+          connection.userId = message.partnerId;
+          connection.isPartner = true;
+          connection.ws.send(JSON.stringify({ 
+            type: 'partner_auth_success', 
+            partnerId: message.partnerId 
+          }));
+        }
         break;
-      }
+      
+      case 'subscribe_order':
+        if (message.orderId && message.userId) {
+          connection.userId = message.userId;
+          connection.isPartner = message.isPartner || false;
+          connection.ws.send(JSON.stringify({ 
+            type: 'subscribed', 
+            orderId: message.orderId 
+          }));
+        }
+        break;
+      
+      default:
+        console.log(`📨 WebSocket message from ${connectionId}:`, message);
     }
   }
 
-  /**
-   * Notify partners about new order dispatch
-   */
-  async notifyPartnersOfDispatch(orderId: string, matchedPartners: Array<{ partnerId: string; distance: number }>): Promise<void> {
-    const message: WebSocketMessage = {
-      type: 'partner_matched',
-      data: {
-        orderId,
-        matchedPartners,
-        expiresAt: new Date(Date.now() + 5 * 60 * 1000) // 5 minutes
-      },
-      timestamp: Date.now()
-    };
+  // Send message to specific user
+  sendToUser(userId: string, message: any): void {
+    const userConnections = Array.from(this.connections.values())
+      .filter(conn => conn.userId === userId);
 
-    // Send to all matched partners
-    for (const partner of matchedPartners) {
-      const connectedPartner = this.connectedPartners.get(partner.partnerId);
-      if (connectedPartner && connectedPartner.isOnline) {
+    userConnections.forEach(connection => {
+      if (connection.ws.readyState === WebSocket.OPEN) {
         try {
-          connectedPartner.socket.send(JSON.stringify(message));
-          console.log(`Dispatch notification sent to partner ${partner.partnerId}`);
+          connection.ws.send(JSON.stringify(message));
+          connection.lastActivity = new Date();
         } catch (error) {
-          console.error(`Failed to send dispatch to partner ${partner.partnerId}:`, error);
+          console.error(`Failed to send message to user ${userId}:`, error);
         }
       }
-    }
+    });
   }
 
-  /**
-   * Notify order status updates
-   */
-  async notifyOrderStatusUpdate(orderId: string, status: string, partnerId?: string): Promise<void> {
-    const message: WebSocketMessage = {
-      type: 'order_status_update',
-      data: {
-        orderId,
-        status,
-        partnerId,
-        timestamp: new Date()
-      },
-      timestamp: Date.now()
-    };
-
-    // Notify subscribed users
-    const userSubs = this.userSubscriptions.get(orderId);
-    if (userSubs) {
-      for (const userId of userSubs) {
-        const connectedUser = this.connectedUsers.get(userId);
-        if (connectedUser) {
-          try {
-            connectedUser.socket.send(JSON.stringify(message));
-          } catch (error) {
-            console.error(`Failed to send status update to user ${userId}:`, error);
-          }
-        }
-      }
-    }
-
-    // Notify subscribed partners
-    const partnerSubs = this.partnerSubscriptions.get(orderId);
-    if (partnerSubs) {
-      for (const pid of partnerSubs) {
-        const connectedPartner = this.connectedPartners.get(pid);
-        if (connectedPartner) {
-          try {
-            connectedPartner.socket.send(JSON.stringify(message));
-          } catch (error) {
-            console.error(`Failed to send status update to partner ${pid}:`, error);
-          }
-        }
-      }
-    }
+  // Send message to all partners
+  sendToPartners(message: any): void {
+    this.broadcast(message, (connection) => connection.isPartner === true);
   }
 
-  /**
-   * Notify location updates
-   */
-  async notifyLocationUpdate(orderId: string, location: { lat: number; lng: number }, partnerId: string): Promise<void> {
-    const message: WebSocketMessage = {
-      type: 'location_update',
-      data: {
-        orderId,
-        location,
-        partnerId,
-        timestamp: new Date()
-      },
-      timestamp: Date.now()
-    };
-
-    // Notify subscribed users about location update
-    const userSubs = this.userSubscriptions.get(orderId);
-    if (userSubs) {
-      for (const userId of userSubs) {
-        const connectedUser = this.connectedUsers.get(userId);
-        if (connectedUser) {
-          try {
-            connectedUser.socket.send(JSON.stringify(message));
-          } catch (error) {
-            console.error(`Failed to send location update to user ${userId}:`, error);
-          }
-        }
-      }
-    }
+  // Send message to all customers
+  sendToCustomers(message: any): void {
+    this.broadcast(message, (connection) => connection.isPartner !== true);
   }
 
-  /**
-   * Clean up expired connections
-   */
+  broadcast(message: any, filter?: (connection: WebSocketConnection) => boolean): void {
+    const connectionsToNotify = filter 
+      ? Array.from(this.connections.values()).filter(filter)
+      : Array.from(this.connections.values());
+
+    connectionsToNotify.forEach(connection => {
+      if (connection.ws.readyState === WebSocket.OPEN) {
+        try {
+          connection.ws.send(JSON.stringify(message));
+        } catch (error) {
+          console.error(`Failed to send message to ${connection.id}:`, error);
+        }
+      }
+    });
+  }
+
   cleanupExpiredConnections(): void {
-    const now = Date.now();
-    const TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+    const now = new Date();
+    const maxIdleTime = 30 * 60 * 1000; // 30 minutes
 
-    // Clean up expired partners
-    for (const [partnerId, partner] of this.connectedPartners.entries()) {
-      if (now - partner.lastPing > TIMEOUT_MS) {
-        partner.socket.close();
-        this.connectedPartners.delete(partnerId);
-        storage.updatePartnerOnlineStatus(partnerId, false);
-        console.log(`Expired partner connection: ${partnerId}`);
-      }
-    }
-
-    // Clean up expired users
-    for (const [userId, user] of this.connectedUsers.entries()) {
-      if (now - user.lastPing > TIMEOUT_MS) {
-        user.socket.close();
-        this.connectedUsers.delete(userId);
-        console.log(`Expired user connection: ${userId}`);
+    for (const [id, connection] of Array.from(this.connections.entries())) {
+      const idleTime = now.getTime() - connection.lastActivity.getTime();
+      
+      if (idleTime > maxIdleTime) {
+        connection.ws.close();
+        this.connections.delete(id);
+        console.log(`🧹 Cleaned up idle connection: ${id}`);
       }
     }
   }
 
-  /**
-   * Get connection statistics
-   */
-  getConnectionStats(): {
-    connectedPartners: number;
-    connectedUsers: number;
-    totalConnections: number;
-  } {
-    return {
-      connectedPartners: this.connectedPartners.size,
-      connectedUsers: this.connectedUsers.size,
-      totalConnections: this.connectedPartners.size + this.connectedUsers.size
-    };
+  getConnectionCount(): number {
+    return this.connections.size;
+  }
+
+  getPort(): number {
+    return this.port;
   }
 }
 
-export const websocketService = WebSocketService.getInstance();
+export const websocketService = new WebSocketService();

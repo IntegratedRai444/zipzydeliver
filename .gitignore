@@ -1,0 +1,41 @@
+# Dependencies
+node_modules
+dist
+
+# Environment files
+.env
+.env.local
+.env.production.local
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Build files
+server/public
+vite.config.ts.*
+*.tar.gz
+
+# Docker
+.dockerignore
+docker-compose.override.yml
+
+# Logs
+logs/
+*.log
+
+# SSL certificates (never commit these!)
+ssl/
+*.pem
+*.key
+*.crt
+
+# Uploads and backups
+uploads/
+backups/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo

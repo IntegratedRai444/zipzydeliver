@@ -165,6 +165,30 @@ export class KBService {
         title: 'Safety and Verification',
         content: 'All delivery partners are verified with government ID or college credentials. Orders are tracked and insured for your safety.',
         keywords: ['safety', 'verification', 'id', 'credentials', 'tracking', 'insurance']
+      },
+      {
+        category: 'feature',
+        title: 'Cart - Adding items',
+        content: 'When a user taps Add to Cart, the item is added to their session cart and a high-contrast toast confirms the action. If the toast does not appear, refresh the page and try again. The cart icon at the bottom shows a View Cart button to open the cart panel.',
+        keywords: ['cart', 'add to cart', 'toast', 'view cart', 'notification']
+      },
+      {
+        category: 'faq',
+        title: 'Item not visible in cart',
+        content: 'If an item does not appear in the cart, check your network connection and try again. You may be logged out—log in again and retry. Items are stored in the session; switching browsers or devices may show an empty cart.',
+        keywords: ['cart', 'missing item', 'session', 'logout', 'login']
+      },
+      {
+        category: 'faq',
+        title: 'How to view and edit cart',
+        content: 'Use the View Cart button at the bottom to open the cart. In the cart panel you can change quantities or remove items before checkout.',
+        keywords: ['view cart', 'edit cart', 'quantity', 'remove', 'checkout']
+      },
+      {
+        category: 'policy',
+        title: 'Checkout troubleshooting',
+        content: 'If checkout fails, verify internet connectivity and payment method. Try again after a minute. If the error persists, contact support with your order number.',
+        keywords: ['checkout', 'payment', 'error', 'support']
       }
     ];
 
@@ -178,4 +202,9 @@ export const kbService = KBService.getInstance();
 export async function seedKbIfEmpty(): Promise<void> {
   // This method is kept for backward compatibility
   console.log('KB seeding completed');
+}
+
+// Export the searchKb function that aiChatbot.ts is trying to import
+export function searchKb(query: string) {
+  return kbService.searchEntries(query);
 }

@@ -1,492 +1,626 @@
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
-import { Button } from './ui/button';
-import { Input } from './ui/input';
-import { Label } from './ui/label';
-import { Textarea } from './ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Badge } from './ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { apiRequest } from '../lib/apiRequest';
-import { useToast } from '../hooks/useToast';
+import { useQuery } from '@tanstack/react-query';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Progress } from '@/components/ui/progress';
+import { Separator } from '@/components/ui/separator';
+import { 
+  Search, 
+  Route, 
+  TrendingUp, 
+  Mic, 
+  Calculator, 
+  Brain, 
+  Zap, 
+  Target,
+  Clock,
+  MapPin,
+  Package,
+  Users,
+  BarChart3
+} from 'lucide-react';
 
-interface AIResponse {
-  success: boolean;
-  data?: any;
-  error?: string;
-  confidence?: number;
-  timestamp: string;
+interface AIFeature {
+  id: string;
+  name: string;
+  description: string;
+  status: 'active' | 'beta' | 'coming_soon';
+  icon: React.ReactNode;
+  category: 'customer' | 'delivery' | 'store' | 'system';
 }
 
-export const AIDashboard: React.FC = () => {
-  const [activeTab, setActiveTab] = useState('demand');
-  const [loading, setLoading] = useState(false);
-  const [results, setResults] = useState<Record<string, AIResponse>>({});
-  const [serviceStatus, setServiceStatus] = useState<boolean | null>(null);
-  const { toast } = useToast();
+const aiFeatures: AIFeature[] = [
+  {
+    id: 'semantic-search',
+    name: 'Semantic Search',
+    description: 'Find products using natural language queries',
+    status: 'active',
+    icon: <Search className="h-6 w-6" />,
+    category: 'customer'
+  },
+  {
+    id: 'recommendations',
+    name: 'AI Recommendations',
+    description: 'Personalized product suggestions based on your preferences',
+    status: 'active',
+    icon: <Brain className="h-6 w-6" />,
+    category: 'customer'
+  },
+  {
+    id: 'budget-planner',
+    name: 'Budget Planner',
+    description: 'Smart budget planning with nutritional insights',
+    status: 'active',
+    icon: <Calculator className="h-6 w-6" />,
+    category: 'customer'
+  },
+  {
+    id: 'route-optimization',
+    name: 'Route Optimization',
+    description: 'AI-powered delivery route planning',
+    status: 'active',
+    icon: <Route className="h-6 w-6" />,
+    category: 'delivery'
+  },
+  {
+    id: 'demand-prediction',
+    name: 'Demand Prediction',
+    description: 'Predict order volumes and peak times',
+    status: 'active',
+    icon: <TrendingUp className="h-6 w-6" />,
+    category: 'delivery'
+  },
+  {
+    id: 'voice-ai',
+    name: 'Voice AI Assistant',
+    description: 'Hands-free delivery updates and commands',
+    status: 'active',
+    icon: <Mic className="h-6 w-6" />,
+    category: 'delivery'
+  },
+  {
+    id: 'chatbot',
+    name: 'AI Chatbot',
+    description: '24/7 customer support and order assistance',
+    status: 'active',
+    icon: <Zap className="h-6 w-6" />,
+    category: 'system'
+  }
+];
 
-  // Form states for different services
-  const [demandData, setDemandData] = useState({
-    location: 'campus_center',
-    date: new Date().toISOString().split('T')[0],
-    weather: 'sunny'
+export default function AIDashboard() {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [budgetAmount, setBudgetAmount] = useState(200);
+  const [budgetConstraints, setBudgetConstraints] = useState({
+    maxAmount: 200,
+    preferredCategories: [] as string[],
+    excludeCategories: [] as string[],
+    mealType: 'snack' as 'breakfast' | 'lunch' | 'dinner' | 'snack'
   });
 
-  const [routeData, setRouteData] = useState({
-    orders: [],
-    partners: [],
-    constraints: {}
+  // Semantic Search
+  const { data: searchResults = [], isLoading: searchLoading } = useQuery({
+    queryKey: ['/api/search', searchQuery],
+    queryFn: async () => {
+      if (!searchQuery.trim()) return [];
+      const response = await fetch(`/api/search?q=${encodeURIComponent(searchQuery)}&limit=6`);
+      const data = await response.json();
+      return data.results || [];
+    },
+    enabled: searchQuery.trim().length > 2
   });
 
-  const [feedbackData, setFeedbackData] = useState({
-    feedback: ''
-  });
-
-  const [fraudData, setFraudData] = useState({
-    orderData: {},
-    customerHistory: [],
-    location: ''
-  });
-
-  // Check AI service status on component mount
-  useEffect(() => {
-    checkServiceStatus();
-  }, []);
-
-  const checkServiceStatus = async () => {
-    try {
-      const response = await apiRequest('/api/ai/status');
-      setServiceStatus(response.status === 'available');
-    } catch (error) {
-      setServiceStatus(false);
-    }
-  };
-
-  const callAIService = async (endpoint: string, data: any, serviceName: string) => {
-    setLoading(true);
-    try {
-      const response = await apiRequest(`/api/ai/${endpoint}`, {
+  // Budget Plan
+  const { data: budgetPlan, isLoading: budgetLoading } = useQuery({
+    queryKey: ['/api/budget/plan', budgetConstraints],
+    queryFn: async () => {
+      const response = await fetch('/api/budget/plan', {
         method: 'POST',
-        body: JSON.stringify(data)
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ budget: budgetConstraints })
       });
+      return response.json();
+    },
+    enabled: budgetConstraints.maxAmount > 0
+  });
 
-      setResults(prev => ({
-        ...prev,
-        [serviceName]: response
-      }));
+  // Demand Prediction
+  const { data: demandData, isLoading: demandLoading } = useQuery({
+    queryKey: ['/api/demand/current'],
+    queryFn: async () => {
+      const response = await fetch('/api/demand/current');
+      return response.json();
+    }
+  });
 
-      toast({
-        title: 'AI Service Response',
-        description: `Successfully called ${serviceName}`,
-        variant: 'default'
-      });
-    } catch (error) {
-      setResults(prev => ({
-        ...prev,
-        [serviceName]: {
-          success: false,
-          error: 'Service call failed',
-          timestamp: new Date().toISOString()
-        }
-      }));
+  const filteredFeatures = aiFeatures.filter(feature => {
+    if (selectedCategory !== 'all' && feature.category !== selectedCategory) return false;
+    return true;
+  });
 
-      toast({
-        title: 'AI Service Error',
-        description: `Failed to call ${serviceName}`,
-        variant: 'destructive'
-      });
-    } finally {
-      setLoading(false);
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'active': return 'bg-green-500';
+      case 'beta': return 'bg-yellow-500';
+      case 'coming_soon': return 'bg-gray-500';
+      default: return 'bg-gray-500';
     }
   };
 
-  const renderResult = (serviceName: string) => {
-    const result = results[serviceName];
-    if (!result) return null;
-
-    return (
-      <Card className="mt-4">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            {serviceName} Results
-            <Badge variant={result.success ? 'default' : 'destructive'}>
-              {result.success ? 'Success' : 'Error'}
-            </Badge>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {result.success ? (
-            <div className="space-y-2">
-              {result.confidence && (
-                <p><strong>Confidence:</strong> {(result.confidence * 100).toFixed(1)}%</p>
-              )}
-              <pre className="bg-gray-100 p-2 rounded text-sm overflow-auto">
-                {JSON.stringify(result.data, null, 2)}
-              </pre>
-            </div>
-          ) : (
-            <p className="text-red-600">{result.error}</p>
-          )}
-          <p className="text-xs text-gray-500 mt-2">
-            Timestamp: {new Date(result.timestamp).toLocaleString()}
-          </p>
-        </CardContent>
-      </Card>
-    );
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case 'active': return 'Active';
+      case 'beta': return 'Beta';
+      case 'coming_soon': return 'Coming Soon';
+      default: return 'Unknown';
+    }
   };
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">AI Services Dashboard</h1>
-          <p className="text-gray-600">Advanced AI/ML services for delivery optimization</p>
+    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 p-6">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-bold text-white mb-4">
+            🚀 Zipzy AI Dashboard
+          </h1>
+          <p className="text-xl text-purple-200">
+            Experience the future of campus delivery with AI-powered features
+          </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Badge variant={serviceStatus ? 'default' : 'destructive'}>
-            {serviceStatus ? 'AI Services Online' : 'AI Services Offline'}
-          </Badge>
-          <Button onClick={checkServiceStatus} variant="outline" size="sm">
-            Refresh Status
-          </Button>
-        </div>
+
+        {/* AI Features Overview */}
+        <Card className="glass-card mb-8">
+          <CardHeader>
+            <CardTitle className="text-2xl text-white flex items-center gap-2">
+              <Brain className="h-8 w-8 text-purple-400" />
+              AI Features Overview
+            </CardTitle>
+            <CardDescription className="text-purple-200">
+              Explore all available AI-powered features
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex gap-4 mb-6">
+              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="Filter by category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Categories</SelectItem>
+                  <SelectItem value="customer">Customer Features</SelectItem>
+                  <SelectItem value="delivery">Delivery Features</SelectItem>
+                  <SelectItem value="store">Store Features</SelectItem>
+                  <SelectItem value="system">System Features</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredFeatures.map((feature) => (
+                <Card key={feature.id} className="glass-card hover:scale-105 transition-transform">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="text-purple-400">
+                          {feature.icon}
+                        </div>
+                        <CardTitle className="text-lg text-white">{feature.name}</CardTitle>
+                      </div>
+                      <Badge className={getStatusColor(feature.status)}>
+                        {getStatusText(feature.status)}
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-purple-200 text-sm">{feature.description}</p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Interactive AI Features */}
+        <Tabs defaultValue="search" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-4 glass-card">
+            <TabsTrigger value="search" className="text-white">🔍 Search</TabsTrigger>
+            <TabsTrigger value="budget" className="text-white">💰 Budget</TabsTrigger>
+            <TabsTrigger value="demand" className="text-white">📊 Demand</TabsTrigger>
+            <TabsTrigger value="voice" className="text-white">🎤 Voice</TabsTrigger>
+          </TabsList>
+
+          {/* Semantic Search Tab */}
+          <TabsContent value="search" className="space-y-6">
+            <Card className="glass-card">
+              <CardHeader>
+                <CardTitle className="text-xl text-white flex items-center gap-2">
+                  <Search className="h-6 w-6 text-purple-400" />
+                  Semantic Product Search
+                </CardTitle>
+                <CardDescription className="text-purple-200">
+                  Find products using natural language - try "healthy snacks" or "quick lunch"
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex gap-4 mb-6">
+                  <div className="flex-1">
+                    <Label htmlFor="search" className="text-white">Search Query</Label>
+                    <Input
+                      id="search"
+                      placeholder="e.g., healthy snacks under 100 rupees"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="mt-2"
+                    />
+                  </div>
+                </div>
+
+                {searchLoading && (
+                  <div className="text-center py-8">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-400 mx-auto"></div>
+                    <p className="text-purple-200 mt-4">Searching...</p>
+                  </div>
+                )}
+
+                {searchResults.length > 0 && (
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-semibold text-white">Search Results</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {searchResults.map((product: any) => (
+                        <Card key={product.id} className="glass-card">
+                          <CardContent className="p-4">
+                            <div className="flex items-center gap-3">
+                              <div className="w-12 h-12 bg-purple-600 rounded-lg flex items-center justify-center">
+                                <Package className="h-6 w-6 text-white" />
+                              </div>
+                              <div>
+                                <h4 className="font-semibold text-white">{product.name}</h4>
+                                <p className="text-sm text-purple-200">₹{product.price}</p>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {searchQuery && !searchLoading && searchResults.length === 0 && (
+                  <div className="text-center py-8 text-purple-200">
+                    <Search className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>No products found for "{searchQuery}"</p>
+                    <p className="text-sm mt-2">Try different keywords or check spelling</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Budget Planner Tab */}
+          <TabsContent value="budget" className="space-y-6">
+            <Card className="glass-card">
+              <CardHeader>
+                <CardTitle className="text-xl text-white flex items-center gap-2">
+                  <Calculator className="h-6 w-6 text-purple-400" />
+                  AI Budget Planner
+                </CardTitle>
+                <CardDescription className="text-purple-200">
+                  Get personalized meal plans within your budget
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                  <div>
+                    <Label htmlFor="budget" className="text-white">Budget Amount (₹)</Label>
+                    <Input
+                      id="budget"
+                      type="number"
+                      value={budgetAmount}
+                      onChange={(e) => {
+                        const amount = parseInt(e.target.value) || 0;
+                        setBudgetAmount(amount);
+                        setBudgetConstraints(prev => ({ ...prev, maxAmount: amount }));
+                      }}
+                      className="mt-2"
+                      min="50"
+                      max="1000"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="mealType" className="text-white">Meal Type</Label>
+                    <Select 
+                      value={budgetConstraints.mealType} 
+                      onValueChange={(value: any) => setBudgetConstraints(prev => ({ ...prev, mealType: value }))}
+                    >
+                      <SelectTrigger className="mt-2">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="breakfast">Breakfast</SelectItem>
+                        <SelectItem value="lunch">Lunch</SelectItem>
+                        <SelectItem value="dinner">Dinner</SelectItem>
+                        <SelectItem value="snack">Snack</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {budgetLoading && (
+                  <div className="text-center py-8">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-400 mx-auto"></div>
+                    <p className="text-purple-200 mt-4">Planning your budget...</p>
+                  </div>
+                )}
+
+                {budgetPlan && (
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <Card className="glass-card text-center">
+                        <CardContent className="p-4">
+                          <p className="text-2xl font-bold text-green-400">₹{budgetPlan.totalCost}</p>
+                          <p className="text-sm text-purple-200">Total Cost</p>
+                        </CardContent>
+                      </Card>
+                      <Card className="glass-card text-center">
+                        <CardContent className="p-4">
+                          <p className="text-2xl font-bold text-blue-400">₹{budgetPlan.savings}</p>
+                          <p className="text-sm text-purple-200">You Save</p>
+                        </CardContent>
+                      </Card>
+                      <Card className="glass-card text-center">
+                        <CardContent className="p-4">
+                          <p className="text-2xl font-bold text-purple-400">{budgetPlan.estimatedCalories}</p>
+                          <p className="text-sm text-purple-200">Calories</p>
+                        </CardContent>
+                      </Card>
+                    </div>
+
+                    <div>
+                      <h3 className="text-lg font-semibold text-white mb-4">Suggested Items</h3>
+                      <div className="space-y-3">
+                        {budgetPlan.suggestedItems.map((item: any, index: number) => (
+                          <Card key={index} className="glass-card">
+                            <CardContent className="p-4">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <h4 className="font-semibold text-white">{item.product.name}</h4>
+                                  <p className="text-sm text-purple-200">{item.reason}</p>
+                                </div>
+                                <div className="text-right">
+                                  <p className="text-white">Qty: {item.quantity}</p>
+                                  <p className="text-green-400">₹{item.totalCost}</p>
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Demand Prediction Tab */}
+          <TabsContent value="demand" className="space-y-6">
+            <Card className="glass-card">
+              <CardHeader>
+                <CardTitle className="text-xl text-white flex items-center gap-2">
+                  <TrendingUp className="h-6 w-6 text-purple-400" />
+                  Demand Prediction
+                </CardTitle>
+                <CardDescription className="text-purple-200">
+                  AI-powered insights into order patterns and peak times
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {demandLoading && (
+                  <div className="text-center py-8">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-400 mx-auto"></div>
+                    <p className="text-purple-200 mt-4">Analyzing demand patterns...</p>
+                  </div>
+                )}
+
+                {demandData && (
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <Card className="glass-card">
+                        <CardHeader>
+                          <CardTitle className="text-lg text-white">Current Hour</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="text-center">
+                            <p className="text-3xl font-bold text-green-400">
+                              {demandData.prediction?.predictedOrders || 0}
+                            </p>
+                            <p className="text-purple-200">Predicted Orders</p>
+                            <div className="mt-2">
+                              <Progress 
+                                value={Math.min((demandData.prediction?.predictedOrders || 0) / 100 * 100, 100)} 
+                                className="h-2"
+                              />
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+
+                      <Card className="glass-card">
+                        <CardHeader>
+                          <CardTitle className="text-lg text-white">Next Hour</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="text-center">
+                            <p className="text-3xl font-bold text-blue-400">
+                              {demandData.nextHour?.predictedOrders || 0}
+                            </p>
+                            <p className="text-purple-200">Predicted Orders</p>
+                            <div className="mt-2">
+                              <Progress 
+                                value={Math.min((demandData.nextHour?.predictedOrders || 0) / 100 * 100, 100)} 
+                                className="h-2"
+                              />
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+
+                    {demandData.prediction?.factors && (
+                      <div>
+                        <h3 className="text-lg font-semibold text-white mb-3">Factors Affecting Demand</h3>
+                        <div className="flex flex-wrap gap-2">
+                          {demandData.prediction.factors.map((factor: string, index: number) => (
+                            <Badge key={index} variant="secondary" className="bg-purple-600 text-white">
+                              {factor}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {demandData.prediction?.recommendations && (
+                      <div>
+                        <h3 className="text-lg font-semibold text-white mb-3">AI Recommendations</h3>
+                        <div className="space-y-2">
+                          {demandData.prediction.recommendations.map((rec: string, index: number) => (
+                            <div key={index} className="flex items-center gap-2 text-purple-200">
+                              <Target className="h-4 w-4 text-purple-400" />
+                              <span>{rec}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Voice AI Tab */}
+          <TabsContent value="voice" className="space-y-6">
+            <Card className="glass-card">
+              <CardHeader>
+                <CardTitle className="text-xl text-white flex items-center gap-2">
+                  <Mic className="h-6 w-6 text-purple-400" />
+                  Voice AI Assistant
+                </CardTitle>
+                <CardDescription className="text-purple-200">
+                  Hands-free delivery updates and commands for delivery partners
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-6">
+                  <div className="text-center">
+                    <div className="w-24 h-24 bg-purple-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <Mic className="h-12 w-12 text-white" />
+                    </div>
+                    <p className="text-purple-200 mb-4">
+                      Click the microphone to start voice commands
+                    </p>
+                    <Button className="bg-purple-600 hover:bg-purple-700 text-white">
+                      <Mic className="h-5 w-5 mr-2" />
+                      Start Voice Command
+                    </Button>
+                  </div>
+
+                  <Separator className="bg-purple-700" />
+
+                  <div>
+                    <h3 className="text-lg font-semibold text-white mb-4">Available Voice Commands</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-3">
+                        <h4 className="font-semibold text-purple-300">Delivery Updates</h4>
+                        <div className="space-y-2 text-sm text-purple-200">
+                          <p>• "Order ABC123 delivered"</p>
+                          <p>• "Picked up package XYZ789"</p>
+                          <p>• "Status delivered for order DEF456"</p>
+                        </div>
+                      </div>
+                      <div className="space-y-3">
+                        <h4 className="font-semibold text-purple-300">Location & Status</h4>
+                        <div className="space-y-2 text-sm text-purple-200">
+                          <p>• "At Hostel 3"</p>
+                          <p>• "Change status to in transit"</p>
+                          <p>• "Location Main Gate"</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-purple-800/30 rounded-lg p-4">
+                    <h4 className="font-semibold text-white mb-2">Voice AI Benefits</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-purple-200">
+                      <div className="flex items-center gap-2">
+                        <Zap className="h-4 w-4 text-purple-400" />
+                        <span>Hands-free operation</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Clock className="h-4 w-4 text-purple-400" />
+                        <span>Faster updates</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <MapPin className="h-4 w-4 text-purple-400" />
+                        <span>Real-time tracking</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+
+        {/* AI Insights Summary */}
+        <Card className="glass-card mt-8">
+          <CardHeader>
+            <CardTitle className="text-xl text-white flex items-center gap-2">
+              <BarChart3 className="h-6 w-6 text-purple-400" />
+              AI Insights Summary
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="text-center">
+                <div className="w-16 h-16 bg-green-600 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <Users className="h-8 w-8 text-white" />
+                </div>
+                <p className="text-2xl font-bold text-green-400">7</p>
+                <p className="text-purple-200">Active AI Features</p>
+              </div>
+              <div className="text-center">
+                <div className="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <Target className="h-8 w-8 text-white" />
+                </div>
+                <p className="text-2xl font-bold text-blue-400">95%</p>
+                <p className="text-purple-200">Accuracy Rate</p>
+              </div>
+              <div className="text-center">
+                <div className="w-16 h-16 bg-purple-600 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <Zap className="h-8 w-8 text-white" />
+                </div>
+                <p className="text-2xl font-bold text-purple-400">24/7</p>
+                <p className="text-purple-200">AI Availability</p>
+              </div>
+              <div className="text-center">
+                <div className="w-16 h-16 bg-yellow-600 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <TrendingUp className="h-8 w-8 text-white" />
+                </div>
+                <p className="text-2xl font-bold text-yellow-400">3x</p>
+                <p className="text-purple-200">Faster Delivery</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
-
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-7">
-          <TabsTrigger value="demand">Demand</TabsTrigger>
-          <TabsTrigger value="route">Route</TabsTrigger>
-          <TabsTrigger value="nlp">NLP</TabsTrigger>
-          <TabsTrigger value="fraud">Fraud</TabsTrigger>
-          <TabsTrigger value="analytics">Analytics</TabsTrigger>
-          <TabsTrigger value="recommendations">Recommendations</TabsTrigger>
-          <TabsTrigger value="operational">Operational</TabsTrigger>
-        </TabsList>
-
-        {/* Demand Prediction Tab */}
-        <TabsContent value="demand" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Demand Prediction</CardTitle>
-              <CardDescription>Predict order demand using AI models</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <Label htmlFor="location">Location</Label>
-                  <Select value={demandData.location} onValueChange={(value) => setDemandData(prev => ({ ...prev, location: value }))}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="campus_center">Campus Center</SelectItem>
-                      <SelectItem value="north_campus">North Campus</SelectItem>
-                      <SelectItem value="south_campus">South Campus</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label htmlFor="date">Date</Label>
-                  <Input
-                    type="date"
-                    value={demandData.date}
-                    onChange={(e) => setDemandData(prev => ({ ...prev, date: e.target.value }))}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="weather">Weather</Label>
-                  <Select value={demandData.weather} onValueChange={(value) => setDemandData(prev => ({ ...prev, weather: value }))}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="sunny">Sunny</SelectItem>
-                      <SelectItem value="rainy">Rainy</SelectItem>
-                      <SelectItem value="cloudy">Cloudy</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <Button 
-                  onClick={() => callAIService('demand/daily', demandData, 'Daily Demand Prediction')}
-                  disabled={loading}
-                >
-                  Predict Daily Demand
-                </Button>
-                <Button 
-                  onClick={() => callAIService('demand/hourly', demandData, 'Hourly Demand Prediction')}
-                  disabled={loading}
-                  variant="outline"
-                >
-                  Predict Hourly Demand
-                </Button>
-                <Button 
-                  onClick={() => callAIService('demand/weather-impact', demandData, 'Weather Impact Analysis')}
-                  disabled={loading}
-                  variant="outline"
-                >
-                  Analyze Weather Impact
-                </Button>
-              </div>
-              {renderResult('Daily Demand Prediction')}
-              {renderResult('Hourly Demand Prediction')}
-              {renderResult('Weather Impact Analysis')}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Route Optimization Tab */}
-        <TabsContent value="route" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Route Optimization</CardTitle>
-              <CardDescription>Optimize delivery routes and partner assignment</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label>Route Data (JSON)</Label>
-                <Textarea
-                  placeholder="Enter route optimization data..."
-                  value={JSON.stringify(routeData, null, 2)}
-                  onChange={(e) => {
-                    try {
-                      setRouteData(JSON.parse(e.target.value));
-                    } catch (error) {
-                      // Invalid JSON, ignore
-                    }
-                  }}
-                  rows={6}
-                />
-              </div>
-              <div className="flex gap-2">
-                <Button 
-                  onClick={() => callAIService('route/optimize', routeData, 'Route Optimization')}
-                  disabled={loading}
-                >
-                  Optimize Route
-                </Button>
-                <Button 
-                  onClick={() => callAIService('route/partner-assignment', routeData, 'Partner Assignment')}
-                  disabled={loading}
-                  variant="outline"
-                >
-                  Optimize Partner Assignment
-                </Button>
-              </div>
-              {renderResult('Route Optimization')}
-              {renderResult('Partner Assignment')}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* NLP Service Tab */}
-        <TabsContent value="nlp" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Natural Language Processing</CardTitle>
-              <CardDescription>Analyze customer feedback and generate smart responses</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="feedback">Customer Feedback</Label>
-                <Textarea
-                  id="feedback"
-                  placeholder="Enter customer feedback to analyze..."
-                  value={feedbackData.feedback}
-                  onChange={(e) => setFeedbackData(prev => ({ ...prev, feedback: e.target.value }))}
-                  rows={4}
-                />
-              </div>
-              <div className="flex gap-2">
-                <Button 
-                  onClick={() => callAIService('nlp/analyze-feedback', feedbackData, 'Feedback Analysis')}
-                  disabled={loading || !feedbackData.feedback}
-                >
-                  Analyze Feedback
-                </Button>
-                <Button 
-                  onClick={() => callAIService('nlp/generate-response', { query: feedbackData.feedback, context: {} }, 'Smart Response')}
-                  disabled={loading || !feedbackData.feedback}
-                  variant="outline"
-                >
-                  Generate Response
-                </Button>
-              </div>
-              {renderResult('Feedback Analysis')}
-              {renderResult('Smart Response')}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Fraud Detection Tab */}
-        <TabsContent value="fraud" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Fraud Detection</CardTitle>
-              <CardDescription>Detect fraudulent orders and payments using AI</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label>Fraud Detection Data (JSON)</Label>
-                <Textarea
-                  placeholder="Enter fraud detection data..."
-                  value={JSON.stringify(fraudData, null, 2)}
-                  onChange={(e) => {
-                    try {
-                      setFraudData(JSON.parse(e.target.value));
-                    } catch (error) {
-                      // Invalid JSON, ignore
-                    }
-                  }}
-                  rows={6}
-                />
-              </div>
-              <div className="flex gap-2">
-                <Button 
-                  onClick={() => callAIService('fraud/detect-orders', fraudData, 'Order Fraud Detection')}
-                  disabled={loading}
-                >
-                  Detect Order Fraud
-                </Button>
-                <Button 
-                  onClick={() => callAIService('fraud/detect-payment', fraudData, 'Payment Fraud Detection')}
-                  disabled={loading}
-                  variant="outline"
-                >
-                  Detect Payment Fraud
-                </Button>
-              </div>
-              {renderResult('Order Fraud Detection')}
-              {renderResult('Payment Fraud Detection')}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Analytics Tab */}
-        <TabsContent value="analytics" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Business Analytics</CardTitle>
-              <CardDescription>Generate AI-powered business insights and reports</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex gap-2">
-                <Button 
-                  onClick={() => callAIService('analytics/daily-report', {}, 'Daily Analytics Report')}
-                  disabled={loading}
-                >
-                  Generate Daily Report
-                </Button>
-                <Button 
-                  onClick={() => callAIService('analytics/customer-segments', {}, 'Customer Segmentation')}
-                  disabled={loading}
-                  variant="outline"
-                >
-                  Analyze Customer Segments
-                </Button>
-              </div>
-              {renderResult('Daily Analytics Report')}
-              {renderResult('Customer Segmentation')}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Recommendations Tab */}
-        <TabsContent value="recommendations" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>AI Recommendations</CardTitle>
-              <CardDescription>Get personalized product and delivery recommendations</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex gap-2">
-                <Button 
-                  onClick={() => callAIService('recommend/products', { userId: 'test-user' }, 'Product Recommendations')}
-                  disabled={loading}
-                >
-                  Get Product Recommendations
-                </Button>
-                <Button 
-                  onClick={() => callAIService('recommend/delivery-times', { location: 'campus_center' }, 'Delivery Time Recommendations')}
-                  disabled={loading}
-                  variant="outline"
-                >
-                  Get Delivery Time Recommendations
-                </Button>
-              </div>
-              {renderResult('Product Recommendations')}
-              {renderResult('Delivery Time Recommendations')}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Operational Tab */}
-        <TabsContent value="operational" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Operational Intelligence</CardTitle>
-              <CardDescription>Optimize operations with AI-powered insights</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex gap-2">
-                <Button 
-                  onClick={() => callAIService('operational/staff-scheduling', {}, 'Staff Scheduling Optimization')}
-                  disabled={loading}
-                >
-                  Optimize Staff Scheduling
-                </Button>
-                <Button 
-                  onClick={() => callAIService('operational/maintenance', {}, 'Maintenance Prediction')}
-                  disabled={loading}
-                  variant="outline"
-                >
-                  Predict Maintenance Needs
-                </Button>
-                <Button 
-                  onClick={() => callAIService('financial/revenue-forecast', {}, 'Revenue Forecast')}
-                  disabled={loading}
-                  variant="outline"
-                >
-                  Revenue Forecast
-                </Button>
-              </div>
-              {renderResult('Staff Scheduling Optimization')}
-              {renderResult('Maintenance Prediction')}
-              {renderResult('Revenue Forecast')}
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-
-      {/* Service Health Status */}
-      <Card>
-        <CardHeader>
-          <CardTitle>AI Service Health</CardTitle>
-          <CardDescription>Monitor the status of all AI services</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label>Python AI Services</Label>
-              <div className="flex items-center gap-2 mt-1">
-                <Badge variant={serviceStatus ? 'default' : 'destructive'}>
-                  {serviceStatus ? 'Online' : 'Offline'}
-                </Badge>
-                <span className="text-sm text-gray-600">
-                  {serviceStatus ? 'All services available' : 'Services unavailable'}
-                </span>
-              </div>
-            </div>
-            <div>
-              <Label>Last Check</Label>
-              <p className="text-sm text-gray-600 mt-1">
-                {new Date().toLocaleString()}
-              </p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
-};
+}

@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zipzy Deliver - Quick Access</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            max-width: 500px;
+            width: 100%;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+        }
+        .status {
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 10px;
+            font-weight: bold;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .links {
+            margin-top: 30px;
+        }
+        .link-btn {
+            display: block;
+            width: 100%;
+            padding: 15px 20px;
+            margin: 10px 0;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            text-decoration: none;
+            border-radius: 10px;
+            font-weight: bold;
+            transition: transform 0.2s;
+        }
+        .link-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+        .admin {
+            background: linear-gradient(45deg, #ff6b6b, #ee5a24);
+        }
+        .user {
+            background: linear-gradient(45deg, #4ecdc4, #44a08d);
+        }
+        .main {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Zipzy Deliver</h1>
+        <div id="status" class="status success">
+            Opening all tabs automatically...
+        </div>
+        
+        <div class="links">
+            <a href="http://localhost:3000" class="link-btn main" target="_blank" rel="noopener">
+                🏠 Main Application
+            </a>
+            <a href="http://localhost:3000/test-admin-bypass" class="link-btn admin" target="_blank" rel="noopener">
+                👑 Admin Bypass (rishabhkapoor@atomicmail.io)
+            </a>
+            <a href="http://localhost:3000/test-user-bypass" class="link-btn user" target="_blank" rel="noopener">
+                👤 User Bypass (rishabh.kapoor@test.com)
+            </a>
+        </div>
+    </div>
+
+    <script>
+        // Auto-open all tabs
+        window.onload = function() {
+            const links = [
+                'http://localhost:3000',
+                'http://localhost:3000/test-admin-bypass',
+                'http://localhost:3000/test/user-bypass'
+            ];
+            
+            let openedCount = 0;
+            
+            links.forEach((link, index) => {
+                setTimeout(() => {
+                    const newWindow = window.open(link, '_blank');
+                    if (newWindow) {
+                        openedCount++;
+                        updateStatus(`Opened tab ${openedCount}/3: ${link.split('/').pop() || 'main'}`);
+                    }
+                }, index * 500); // Open with 500ms delay between each
+            });
+            
+            // Final status after all tabs
+            setTimeout(() => {
+                updateStatus('✅ All tabs opened successfully!', 'success');
+            }, 2000);
+        };
+        
+        function updateStatus(message, type = 'success') {
+            const statusEl = document.getElementById('status');
+            statusEl.textContent = message;
+            statusEl.className = `status ${type}`;
+        }
+    </script>
+</body>
+</html>
