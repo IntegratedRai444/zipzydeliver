@@ -38,4 +38,4 @@ backups/
 .vscode/
 .idea/
 *.swp
-*.swo
+*.swo.vite/
