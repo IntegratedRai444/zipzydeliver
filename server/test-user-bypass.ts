@@ -29,6 +29,14 @@ const TEST_ADMIN = {
 
 export async function createTestUsers(storage: LocalMongoDBStorage) {
   try {
+    // Clear existing test users first to ensure clean data
+    try {
+      await storage.clearTestUsers();
+      console.log('🧹 Cleared existing test users');
+    } catch (error) {
+      console.log('⚠️ Could not clear test users:', error);
+    }
+    
     // Create test user
     const existingUser = await storage.getUserByEmail(TEST_USER.email);
     if (!existingUser) {
@@ -41,7 +49,8 @@ export async function createTestUsers(storage: LocalMongoDBStorage) {
         lastName: TEST_USER.lastName,
         phone: TEST_USER.phone,
         address: TEST_USER.hostel,
-        role: TEST_USER.role
+        role: TEST_USER.role,
+        isAdmin: false
       });
 
       await storage.createUserCredential({
@@ -56,7 +65,8 @@ export async function createTestUsers(storage: LocalMongoDBStorage) {
     // Create test admin
     const existingAdmin = await storage.getUserByEmail(TEST_ADMIN.email);
     if (!existingAdmin) {
-      const hashedPassword = await bcrypt.hash('rishabhkapoor@0444', 10);
+      const defaultAdminPassword = process.env.ADMIN_DEFAULT_PASSWORD || 'Rishabhkapoor@0444';
+      const hashedPassword = await bcrypt.hash(defaultAdminPassword, 10);
       
       const newAdmin = await storage.createUser({
         id: TEST_ADMIN.id,
@@ -65,7 +75,8 @@ export async function createTestUsers(storage: LocalMongoDBStorage) {
         lastName: TEST_ADMIN.lastName,
         phone: TEST_ADMIN.phone,
         address: TEST_ADMIN.hostel,
-        role: TEST_ADMIN.role
+        role: TEST_ADMIN.role,
+        isAdmin: true
       });
 
       await storage.createUserCredential({
@@ -90,7 +101,7 @@ export function getTestUserInfo() {
     admin: TEST_ADMIN,
     credentials: {
       user: { email: TEST_USER.email, password: 'test123' },
-      admin: { email: TEST_ADMIN.email, password: 'rishabhkapoor@0444' }
+      admin: { email: TEST_ADMIN.email, password: 'Rishabhkapoor@0444' }
     }
   };
 }

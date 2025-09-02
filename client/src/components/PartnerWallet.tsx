@@ -61,7 +61,7 @@ interface PartnerWalletProps {
   partnerId: string;
 }
 
-export const PartnerWallet: React.FC<PartnerWalletProps> = ({ partnerId }) => {
+const PartnerWallet: React.FC<PartnerWalletProps> = ({ partnerId }) => {
   const { user } = useAuth();
   const [walletBalance, setWalletBalance] = useState<WalletBalance | null>(null);
   const [zpointsBalance, setZpointsBalance] = useState<ZPointsBalance | null>(null);
@@ -585,3 +585,5 @@ export const PartnerWallet: React.FC<PartnerWalletProps> = ({ partnerId }) => {
     </div>
   );
 };
+
+export default PartnerWallet;

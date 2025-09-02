@@ -9,7 +9,7 @@ interface AdminPartnerAssignmentProps {
   orderId: string;
 }
 
-export const AdminPartnerAssignment: React.FC<AdminPartnerAssignmentProps> = ({ orderId }) => {
+const AdminPartnerAssignment: React.FC<AdminPartnerAssignmentProps> = ({ orderId }) => {
   const [loading, setLoading] = useState(false);
   const [selectedPartner, setSelectedPartner] = useState<string>('');
   const [availablePartners, setAvailablePartners] = useState<any[]>([]);
@@ -81,3 +81,5 @@ export const AdminPartnerAssignment: React.FC<AdminPartnerAssignmentProps> = ({ 
     </Card>
   );
 };
+
+export default AdminPartnerAssignment;

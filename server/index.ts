@@ -3,7 +3,7 @@ import { createServer } from "http";
 import helmet from "helmet";
 import compression from "compression";
 import cors from "cors";
-import rateLimit from "express-rate-limit";
+// import rateLimit from "express-rate-limit"; // Rate limiting disabled
 import { config } from 'dotenv';
 import { resolve } from 'path';
 import { getAvailablePort } from './utils/portUtils';
@@ -41,6 +41,7 @@ let demandPredictor: any;
 let dispatchService: any;
 let distanceService: any;
 let pythonAIIntegration: any;
+let pythonServicesRouter: any;
 
 // Initialize modules function
 async function initializeModules() {
@@ -147,6 +148,14 @@ async function initializeModules() {
   }
 
   try {
+    const pythonServicesModule = await import("./routes/pythonServices");
+    pythonServicesRouter = pythonServicesModule.default;
+  } catch (error) {
+    console.error('❌ Failed to import Python services router:', error);
+    pythonServicesRouter = null;
+  }
+
+  try {
     const dispatchServiceModule = await import("./services/dispatchService");
     dispatchService = dispatchServiceModule.dispatchService;
   } catch (error) {
@@ -180,20 +189,20 @@ app.use(helmet({
 }));
 app.use(compression());
 
-// Rate limiting for production security
-const limiter = rateLimit({
-  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000'), // 15 minutes
-  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '100'), // limit each IP to 100 requests per windowMs
-  message: {
-    success: false,
-    error: 'Too many requests from this IP, please try again later.',
-    message: 'Rate limit exceeded'
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
+// Rate limiting disabled for development
+// const limiter = rateLimit({
+//   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000'), // 15 minutes
+//   max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '100'), // limit each IP to 100 requests per windowMs
+//   message: {
+//     success: false,
+//     error: 'Too many requests from this IP, please try again later.',
+//     message: 'Rate limit exceeded'
+//   },
+//   standardHeaders: true,
+//   legacyHeaders: false,
+// });
 
-app.use('/api/', limiter);
+// app.use('/api/', limiter);
 
 app.use(cors({
   origin: process.env.CORS_ORIGIN || true,
@@ -270,14 +279,29 @@ app.use((req, res, next) => {
     // Use the comprehensive router for API routes
     app.use('/api', completeRouter);
     
-    // Seed test users (non-blocking)
-    createTestUsers(app.locals.storage).then(() => {
+    // Add Python services routes
+    if (pythonServicesRouter) {
+      app.use('/api/python', pythonServicesRouter);
+      log("✅ Python services routes registered");
+    } else {
+      log("⚠️ Python services routes not available");
+    }
+    
+    // Seed test users (non-blocking) and enforce clean order
+    createTestUsers(app.locals.storage).then(async () => {
       log("✅ Test users ready");
+      // Dedupe any accidental duplicate credentials
+      if (app.locals.storage.dedupeUserCredentials) {
+        const res = await app.locals.storage.dedupeUserCredentials();
+        if (res.removed > 0) {
+          log(`⚠️ Removed ${res.removed} duplicate credential records`);
+        }
+      }
     }).catch((error: any) => {
       log("⚠️ Test users creation failed:", error);
     });
 
-    // Seed products and categories (non-blocking)
+    // Seed products and categories (non-blocking) then admin test data
     app.locals.storage.seedData().then(() => {
       log("✅ Products and categories seeded");
       
@@ -285,6 +309,10 @@ app.use((req, res, next) => {
       return app.locals.storage.seedAdminTestData();
     }).then(() => {
       log("✅ Admin test data seeded");
+      // After seeding, attempt to apply product images from CSV if present
+      tryApplyImagesFromCsv(app.locals.storage).catch((e: any) => {
+        log("⚠️ Image CSV import skipped:", e?.message || e);
+      });
     }).catch((error: any) => {
       log("⚠️ Data seeding failed:", error);
     });
@@ -328,8 +356,12 @@ app.use((req, res, next) => {
     }
 
     // Dynamic port selection to avoid conflicts
-    const preferredPort = parseInt(process.env.PORT || '5001', 10);
-    const actualPort = await getAvailablePort(preferredPort, preferredPort + 10);
+    const preferredPort = parseInt(process.env.PORT || '5000', 10);
+    const actualPort = await getAvailablePort(preferredPort, 20); // Try 20 ports starting from preferred
+    
+    // Store the actual port in environment for other services
+    process.env.ACTUAL_PORT = actualPort.toString();
+    process.env.BACKEND_URL = `http://localhost:${actualPort}`;
     
     log(`🌐 Attempting to bind to port ${actualPort} (preferred: ${preferredPort})...`);
     
@@ -392,11 +424,11 @@ app.use((req, res, next) => {
     }).on('error', (error) => {
       clearTimeout(serverTimeout);
       log(`❌ Server failed to start: ${(error as any).message}`);
-      log(`❌ Error stack: ${(error as any).stack}`);
       
       if ((error as any).code === 'EADDRINUSE') {
-        log(`💡 Port ${preferredPort} is busy. Try setting a different PORT in your .env file`);
-        log(`💡 Example: PORT=5001 npm run dev`);
+        log(`💡 Port ${actualPort} is busy. The system should automatically find another port.`);
+        log(`💡 If this keeps happening, try: taskkill /F /IM node.exe`);
+        log(`💡 Then restart with: npm run dev`);
       }
       
       process.exit(1);

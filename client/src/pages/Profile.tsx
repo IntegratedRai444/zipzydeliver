@@ -111,142 +111,153 @@ export default function Profile() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-pink-50">
       <Header onCartClick={() => {}} />
       
-      <main className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-foreground mb-2" data-testid="text-profile-title">
+      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="mb-12 text-center">
+          <div className="w-24 h-24 bg-gradient-to-br from-purple-600 to-pink-600 rounded-full flex items-center justify-center mx-auto mb-6">
+            <svg className="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+            </svg>
+          </div>
+          <h1 className="text-4xl font-bold text-gray-800 mb-4" data-testid="text-profile-title">
             Profile Settings
           </h1>
-          <p className="text-muted-foreground">Manage your account information and preferences</p>
+          <p className="text-gray-600 text-lg">Manage your account information and preferences</p>
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Personal Information</CardTitle>
-            <CardDescription>
-              Update your personal details and campus information
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden">
+          <div className="bg-gradient-to-r from-purple-600 to-pink-600 p-8 text-white">
+            <h2 className="text-2xl font-bold mb-2">Personal Information</h2>
+            <p className="text-purple-100">Update your personal details and campus information</p>
+          </div>
+          
+          <div className="p-8">
+            <form onSubmit={handleSubmit} className="space-y-8">
               {/* Basic Information */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="firstName">First Name</Label>
-                  <Input
-                    id="firstName"
-                    value={firstName}
-                    onChange={(e) => setFirstName(e.target.value)}
-                    placeholder="Enter your first name"
-                    data-testid="input-first-name"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="lastName">Last Name</Label>
-                  <Input
-                    id="lastName"
-                    value={lastName}
-                    onChange={(e) => setLastName(e.target.value)}
-                    placeholder="Enter your last name"
-                    data-testid="input-last-name"
-                  />
-                </div>
-              </div>
-
               <div>
-                <Label htmlFor="email">Email Address</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Enter your email"
-                  data-testid="input-email"
-                />
+                <h3 className="text-xl font-bold text-gray-800 mb-6">Basic Information</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-3">
+                    <Label htmlFor="firstName" className="text-gray-700 font-semibold">First Name</Label>
+                    <Input
+                      id="firstName"
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                      placeholder="Enter your first name"
+                      className="border-2 border-gray-200 focus:border-purple-500 rounded-xl py-3"
+                      data-testid="input-first-name"
+                    />
+                  </div>
+                  <div className="space-y-3">
+                    <Label htmlFor="lastName" className="text-gray-700 font-semibold">Last Name</Label>
+                    <Input
+                      id="lastName"
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                      placeholder="Enter your last name"
+                      className="border-2 border-gray-200 focus:border-purple-500 rounded-xl py-3"
+                      data-testid="input-last-name"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                  <div className="space-y-3">
+                    <Label htmlFor="email" className="text-gray-700 font-semibold">Email Address</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="Enter your email"
+                      className="border-2 border-gray-200 focus:border-purple-500 rounded-xl py-3"
+                      data-testid="input-email"
+                    />
+                  </div>
+                  <div className="space-y-3">
+                    <Label htmlFor="phone" className="text-gray-700 font-semibold">Phone Number</Label>
+                    <Input
+                      id="phone"
+                      type="tel"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      placeholder="+91 98765 43210"
+                      className="border-2 border-gray-200 focus:border-purple-500 rounded-xl py-3"
+                      data-testid="input-phone"
+                    />
+                  </div>
+                </div>
               </div>
 
-              <div>
-                <Label htmlFor="phone">Phone Number</Label>
-                <Input
-                  id="phone"
-                  type="tel"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="+91 98765 43210"
-                  data-testid="input-phone"
-                />
-              </div>
-
-              <Separator />
-
-              {/* Campus Information */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-foreground">Campus Information</h3>
+              <div className="border-t border-gray-200 pt-8">
+                <h3 className="text-xl font-bold text-gray-800 mb-6">Campus Information</h3>
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="collegeId">College ID</Label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-3">
+                    <Label htmlFor="collegeId" className="text-gray-700 font-semibold">College ID</Label>
                     <Input
                       id="collegeId"
                       value={collegeId}
                       onChange={(e) => setCollegeId(e.target.value)}
                       placeholder="TECH2024"
+                      className="border-2 border-gray-200 focus:border-purple-500 rounded-xl py-3"
                       data-testid="input-college-id"
                     />
                   </div>
-                  <div>
-                    <Label htmlFor="studentId">Student ID</Label>
+                  <div className="space-y-3">
+                    <Label htmlFor="studentId" className="text-gray-700 font-semibold">Student ID</Label>
                     <Input
                       id="studentId"
                       value={studentId}
                       onChange={(e) => setStudentId(e.target.value)}
                       placeholder="STU001234"
+                      className="border-2 border-gray-200 focus:border-purple-500 rounded-xl py-3"
                       data-testid="input-student-id"
                     />
                   </div>
                 </div>
 
-                <div>
-                  <Label htmlFor="department">Department</Label>
-                  <Input
-                    id="department"
-                    value={department}
-                    onChange={(e) => setDepartment(e.target.value)}
-                    placeholder="Computer Science"
-                    data-testid="input-department"
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="hostelAddress">Hostel/Address</Label>
-                  <Textarea
-                    id="hostelAddress"
-                    value={hostelAddress}
-                    onChange={(e) => setHostelAddress(e.target.value)}
-                    placeholder="Hostel Block A, Room 205"
-                    rows={3}
-                    data-testid="input-hostel-address"
-                  />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                  <div className="space-y-3">
+                    <Label htmlFor="department" className="text-gray-700 font-semibold">Department</Label>
+                    <Input
+                      id="department"
+                      value={department}
+                      onChange={(e) => setDepartment(e.target.value)}
+                      placeholder="Computer Science"
+                      className="border-2 border-gray-200 focus:border-purple-500 rounded-xl py-3"
+                      data-testid="input-department"
+                    />
+                  </div>
+                  <div className="space-y-3">
+                    <Label htmlFor="hostelAddress" className="text-gray-700 font-semibold">Hostel/Address</Label>
+                    <Textarea
+                      id="hostelAddress"
+                      value={hostelAddress}
+                      onChange={(e) => setHostelAddress(e.target.value)}
+                      placeholder="Hostel Block A, Room 205"
+                      rows={3}
+                      className="border-2 border-gray-200 focus:border-purple-500 rounded-xl py-3"
+                      data-testid="input-hostel-address"
+                    />
+                  </div>
                 </div>
               </div>
 
-              <Separator />
-
-              {/* Account Information */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-foreground">Account Information</h3>
-                <div className="bg-muted rounded-lg p-4">
+              <div className="border-t border-gray-200 pt-8">
+                <h3 className="text-xl font-bold text-gray-800 mb-6">Account Information</h3>
+                <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-2xl p-6 border border-purple-200">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="font-medium text-foreground">Account Type</p>
-                      <p className="text-sm text-muted-foreground">
+                      <p className="font-bold text-gray-800">Account Type</p>
+                      <p className="text-gray-600">
                         {user?.isAdmin ? "Administrator" : "Student"}
                       </p>
                     </div>
                     {user?.isAdmin && (
-                      <div className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-sm font-medium">
+                      <div className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-4 py-2 rounded-full text-sm font-bold">
                         Admin
                       </div>
                     )}
@@ -254,11 +265,12 @@ export default function Profile() {
                 </div>
               </div>
 
-              <div className="flex justify-end space-x-4">
+              <div className="flex justify-end space-x-4 pt-8">
                 <Button
                   type="button"
                   variant="outline"
                   onClick={() => window.history.back()}
+                  className="border-2 border-gray-300 text-gray-700 hover:bg-gray-50 rounded-xl px-6 py-3"
                   data-testid="button-cancel"
                 >
                   Cancel
@@ -266,15 +278,27 @@ export default function Profile() {
                 <Button
                   type="submit"
                   disabled={updateProfileMutation.isPending}
-                  className="bg-purple-600 hover:bg-purple-700 text-white"
+                  className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold rounded-xl px-8 py-3 shadow-lg transform hover:scale-105 transition-all duration-300"
                   data-testid="button-save-profile"
                 >
-                  {updateProfileMutation.isPending ? "Saving..." : "Save Changes"}
+                  {updateProfileMutation.isPending ? (
+                    <div className="flex items-center space-x-2">
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      <span>Saving...</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center space-x-2">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
+                      </svg>
+                      <span>Save Changes</span>
+                    </div>
+                  )}
                 </Button>
               </div>
             </form>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </main>
     </div>
   );

@@ -7,6 +7,7 @@ import { ScrollArea } from './ui/scroll-area';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
+import { getErrorMessage, logError } from '@/lib/errorHandling';
 import type { Conversation, Message } from '@/types/schema';
 
 interface ChatbotProps {
@@ -23,13 +24,13 @@ export function AIChatbot({ isOpen, onToggle }: ChatbotProps) {
   const { toast } = useToast();
 
   // Get or create conversation
-  const { data: conversations } = useQuery<Conversation[]>({
+  const { data: conversations, error: conversationError } = useQuery<Conversation[]>({
     queryKey: ['/api/conversations'],
     enabled: isOpen,
   });
 
   // Get messages for current conversation
-  const { data: messages } = useQuery<Message[]>({
+  const { data: messages, error: messagesError } = useQuery<Message[]>({
     queryKey: ['/api/conversations', currentConversationId, 'messages'],
     enabled: !!currentConversationId,
   });
@@ -226,8 +227,8 @@ export function AIChatbot({ isOpen, onToggle }: ChatbotProps) {
                     <div className="bg-gray-900 border border-gray-800 rounded-lg p-3">
                       <div className="flex space-x-1">
                         <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce"></div>
-                        <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                        <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                        <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce animate-delay-100"></div>
+                        <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce animate-delay-200"></div>
                       </div>
                     </div>
                   </div>

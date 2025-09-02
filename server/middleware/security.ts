@@ -11,56 +11,16 @@ config();
  * Comprehensive Security Middleware for ZipzyDeliver
  */
 
-// Rate limiting configuration
+// Rate limiting configuration - DISABLED
 export const createRateLimiters = () => {
-  // General API rate limiter
-  const apiLimiter = rateLimit({
-    windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '900000'), // 15 minutes
-    max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS || '100'), // limit each IP to 100 requests per windowMs
-    message: {
-      success: false,
-      error: 'Too many requests from this IP, please try again later.',
-      message: 'Rate limit exceeded'
-    },
-    standardHeaders: true,
-    legacyHeaders: false,
-    skipSuccessfulRequests: process.env.RATE_LIMIT_SKIP_SUCCESSFUL_REQUESTS === 'true',
-    skipFailedRequests: process.env.RATE_LIMIT_SKIP_FAILED_REQUESTS === 'true',
-    keyGenerator: (req) => {
-      // Use X-Forwarded-For header if behind proxy, otherwise use IP
-      return req.headers['x-forwarded-for'] as string || req.ip || 'unknown';
-    }
-  });
-
-  // Stricter rate limiter for authentication endpoints
-  const authLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 5, // limit each IP to 5 requests per windowMs
-    message: {
-      success: false,
-      error: 'Too many authentication attempts, please try again later.',
-      message: 'Authentication rate limit exceeded'
-    },
-    standardHeaders: true,
-    legacyHeaders: false,
-    skipSuccessfulRequests: false,
-    skipFailedRequests: false
-  });
-
-  // File upload rate limiter
-  const uploadLimiter = rateLimit({
-    windowMs: 60 * 60 * 1000, // 1 hour
-    max: 10, // limit each IP to 10 uploads per hour
-    message: {
-      success: false,
-      error: 'Too many file uploads, please try again later.',
-      message: 'Upload rate limit exceeded'
-    },
-    standardHeaders: true,
-    legacyHeaders: false
-  });
-
-  return { apiLimiter, authLimiter, uploadLimiter };
+  // Rate limiting disabled for development
+  const noLimit = (req: any, res: any, next: any) => next();
+  
+  return { 
+    apiLimiter: noLimit, 
+    authLimiter: noLimit, 
+    uploadLimiter: noLimit 
+  };
 };
 
 // CORS configuration

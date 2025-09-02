@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, type SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useAuth } from "@/hooks/useAuth";
@@ -17,7 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, getQueryFn } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { showErrorToast, logError } from "@/lib/errorHandling";
 import { Plus, Pencil, Trash2, Package, CheckCircle, XCircle, CreditCard, Truck, Wallet, Users, TrendingUp, Minus } from "lucide-react";
@@ -160,45 +160,91 @@ export default function AdminPanel() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("dashboard");
+  const isAdmin = !!user?.isAdmin && !!isAuthenticated;
 
-  // Redirect if not authenticated or not admin
-  useEffect(() => {
-    if (!isLoading && (!isAuthenticated || !user?.isAdmin)) {
-      toast({
-        title: "Unauthorized",
-        description: "Admin access required. Redirecting...",
-        variant: "destructive",
-      });
-      setTimeout(() => {
-        window.location.href = isAuthenticated ? "/" : "/api/login";
-      }, 500);
-      return;
-    }
-  }, [isAuthenticated, isLoading, user?.isAdmin, toast]);
+  // Early auth gate to prevent query churn and infinite loading
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-purple-600 border-t-transparent"></div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center space-y-2">
+          <h2 className="text-xl font-semibold">Please sign in</h2>
+          <p className="text-muted-foreground">You must be logged in to access the admin panel.</p>
+          <a href="/login" className="inline-block px-4 py-2 rounded bg-purple-600 text-white">Go to Login</a>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center space-y-2">
+          <h2 className="text-xl font-semibold">Not authorized</h2>
+          <p className="text-muted-foreground">Your account does not have admin access.</p>
+          <a href="/" className="inline-block px-4 py-2 rounded bg-purple-600 text-white">Go Home</a>
+        </div>
+      </div>
+    );
+  }
 
   const { data: orders = [], isLoading: ordersLoading } = useQuery<Order[]>({
-    queryKey: ['/api/admin/orders'],
-    select: (data) => data || []
+    queryKey: ['admin-orders'],
+    queryFn: getQueryFn({ on401: "returnNull" }),
+    select: (data) => data || [],
+    refetchInterval: 120000, // Refetch every 2 minutes (reduced from 30 seconds)
+    staleTime: 100000, // Data considered fresh for 1.5+ minutes
+    refetchOnWindowFocus: false, // Don't refetch when window regains focus
+    enabled: isAdmin,
   });
 
   const { data: products = [], isLoading: productsLoading } = useQuery<Product[]>({
-    queryKey: ['/api/products'],
-    select: (data) => data || []
+    queryKey: ['products'],
+    queryFn: getQueryFn({ on401: "returnNull" }),
+    select: (data) => data || [],
+    refetchInterval: 300000, // Refetch every 5 minutes
+    staleTime: 250000, // Data considered fresh for 4+ minutes
+    refetchOnWindowFocus: false, // Don't refetch when window regains focus
+    enabled: isAdmin,
   });
 
   const { data: categories = [], isLoading: categoriesLoading } = useQuery<Category[]>({
-    queryKey: ['/api/categories'],
-    select: (data) => data || []
+    queryKey: ['categories'],
+    queryFn: getQueryFn({ on401: "returnNull" }),
+    select: (data) => data || [],
+    refetchInterval: 600000, // Refetch every 10 minutes
+    staleTime: 500000, // Data considered fresh for 8+ minutes
+    refetchOnWindowFocus: false, // Don't refetch when window regains focus
+    enabled: isAdmin,
   });
 
   const { data: users = [], isLoading: usersLoading } = useQuery<User[]>({
-    queryKey: ['/api/admin/users'],
-    select: (data) => data || []
+    queryKey: ['admin-users'],
+    queryFn: getQueryFn({ on401: "returnNull" }),
+    select: (data) => data || [],
+    refetchInterval: 300000, // Refetch every 5 minutes (reduced from 1 minute)
+    staleTime: 250000, // Data considered fresh for 4+ minutes
+    refetchOnWindowFocus: false, // Don't refetch when window regains focus
+    enabled: isAdmin,
   });
 
   const { data: payments = [], isLoading: paymentsLoading } = useQuery<Payment[]>({
-    queryKey: ['/api/admin/payments'],
-    select: (data) => data || []
+    queryKey: ['admin-payments'],
+    queryFn: getQueryFn({ on401: "returnNull" }),
+    select: (data) => data || [],
+    refetchInterval: 120000, // Refetch every 2 minutes
+    staleTime: 100000, // Data considered fresh for 100 seconds
+    refetchOnWindowFocus: false, // Don't refetch when window regains focus
+    enabled: isAdmin,
   });
 
   // Ensure categories is always an array
@@ -224,8 +270,8 @@ export default function AdminPanel() {
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
 
   // Forms
-  const productForm = useForm<ProductFormData>({
-    resolver: zodResolver(productFormSchema),
+  const productForm = useForm<ProductFormData, any, ProductFormData>({
+    resolver: zodResolver(productFormSchema) as any,
     defaultValues: {
       name: "",
       description: "",
@@ -239,8 +285,8 @@ export default function AdminPanel() {
     }
   });
 
-  const categoryForm = useForm<CategoryFormData>({
-    resolver: zodResolver(categoryFormSchema),
+  const categoryForm = useForm<CategoryFormData, any, CategoryFormData>({
+    resolver: zodResolver(categoryFormSchema) as any,
     defaultValues: {
       name: "",
       description: "",
@@ -250,8 +296,8 @@ export default function AdminPanel() {
     }
   });
 
-  const notificationForm = useForm<NotificationFormData>({
-    resolver: zodResolver(notificationFormSchema),
+  const notificationForm = useForm<NotificationFormData, any, NotificationFormData>({
+    resolver: zodResolver(notificationFormSchema) as any,
     defaultValues: {
       title: "",
       message: "",
@@ -265,7 +311,7 @@ export default function AdminPanel() {
       await apiRequest("POST", `/api/admin/orders/${orderId}/status`, { status });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/orders'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
       toast({
         title: "Order updated",
         description: "Order status has been updated successfully",
@@ -502,7 +548,7 @@ export default function AdminPanel() {
     setIsProductDialogOpen(true);
   };
 
-  const handleProductSubmit = (data: ProductFormData) => {
+  const handleProductSubmit: SubmitHandler<ProductFormData> = (data) => {
     if (editingProduct) {
       updateProductMutation.mutate({ id: editingProduct.id, data });
     } else {
@@ -510,7 +556,7 @@ export default function AdminPanel() {
     }
   };
 
-  const handleCategorySubmit = (data: CategoryFormData) => {
+  const handleCategorySubmit: SubmitHandler<CategoryFormData> = (data) => {
     createCategoryMutation.mutate(data);
   };
 
@@ -690,7 +736,7 @@ export default function AdminPanel() {
     }
   ];
 
-  if (isLoading || ordersLoading || usersLoading || paymentsLoading || productsLoading || categoriesLoading) {
+  if (ordersLoading || usersLoading || paymentsLoading || productsLoading || categoriesLoading) {
     return (
       <div className="min-h-screen bg-background">
         <div className="flex items-center justify-center min-h-screen">
@@ -705,11 +751,36 @@ export default function AdminPanel() {
       <Header onCartClick={() => {}} />
       
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-foreground mb-2" data-testid="text-admin-title">
-            Admin Panel
-          </h1>
-                          <p className="text-muted-foreground">Manage orders, products, users, payments, and view analytics</p>
+        <div className="mb-8 flex justify-between items-start">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground mb-2" data-testid="text-admin-title">
+              Admin Panel
+            </h1>
+            <p className="text-muted-foreground">Manage orders, products, users, payments, and view analytics</p>
+          </div>
+          
+          {/* Manual Refresh Button */}
+          <Button
+            onClick={() => {
+              queryClient.invalidateQueries({ queryKey: ['admin-orders'] });
+              queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+              queryClient.invalidateQueries({ queryKey: ['admin-payments'] });
+              queryClient.invalidateQueries({ queryKey: ['products'] });
+              queryClient.invalidateQueries({ queryKey: ['categories'] });
+              toast({
+                title: "Data refreshed",
+                description: "All data has been refreshed successfully",
+              });
+            }}
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-2"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+            </svg>
+            Refresh Data
+          </Button>
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -734,8 +805,17 @@ export default function AdminPanel() {
                   </svg>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold" data-testid="text-total-users">{safeUsers.length}</div>
-                  <p className="text-xs text-muted-foreground">+5% from last month</p>
+                  {usersLoading ? (
+                    <div className="flex items-center space-x-2">
+                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-purple-600 border-t-transparent"></div>
+                      <span className="text-sm text-muted-foreground">Loading...</span>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="text-2xl font-bold" data-testid="text-total-users">{safeUsers.length}</div>
+                      <p className="text-xs text-muted-foreground">+5% from last month</p>
+                    </>
+                  )}
                 </CardContent>
               </Card>
 
@@ -747,8 +827,17 @@ export default function AdminPanel() {
                   </svg>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold" data-testid="text-total-orders">{totalOrders}</div>
-                  <p className="text-xs text-muted-foreground">+12% from last month</p>
+                  {ordersLoading ? (
+                    <div className="flex items-center space-x-2">
+                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-purple-600 border-t-transparent"></div>
+                      <span className="text-sm text-muted-foreground">Loading...</span>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="text-2xl font-bold" data-testid="text-total-orders">{totalOrders}</div>
+                      <p className="text-xs text-muted-foreground">+12% from last month</p>
+                    </>
+                  )}
                 </CardContent>
               </Card>
 
@@ -760,8 +849,17 @@ export default function AdminPanel() {
                   </svg>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold" data-testid="text-total-revenue">₹{totalRevenue.toFixed(0)}</div>
-                  <p className="text-xs text-muted-foreground">+8% from last month</p>
+                  {ordersLoading ? (
+                    <div className="flex items-center space-x-2">
+                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-purple-600 border-t-transparent"></div>
+                      <span className="text-sm text-muted-foreground">Loading...</span>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="text-2xl font-bold" data-testid="text-total-revenue">₹{totalRevenue.toFixed(0)}</div>
+                      <p className="text-xs text-muted-foreground">+8% from last month</p>
+                    </>
+                  )}
                 </CardContent>
               </Card>
 
@@ -773,10 +871,19 @@ export default function AdminPanel() {
                   </svg>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold" data-testid="text-pending-payments">
-                                          {safePayments.filter(p => p.status === 'pending').length}
-                  </div>
-                  <p className="text-xs text-muted-foreground">Needs attention</p>
+                  {paymentsLoading ? (
+                    <div className="flex items-center space-x-2">
+                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-purple-600 border-t-transparent"></div>
+                      <span className="text-sm text-muted-foreground">Loading...</span>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="text-2xl font-bold" data-testid="text-pending-payments">
+                        {safePayments.filter(p => p.status === 'pending').length}
+                      </div>
+                      <p className="text-xs text-muted-foreground">Needs attention</p>
+                    </>
+                  )}
                 </CardContent>
               </Card>
             </div>
@@ -1196,11 +1303,11 @@ export default function AdminPanel() {
                         </DialogDescription>
                       </DialogHeader>
                       <Form {...categoryForm}>
-                        <form onSubmit={categoryForm.handleSubmit(handleCategorySubmit)} className="space-y-4">
+                        <form onSubmit={categoryForm.handleSubmit(handleCategorySubmit as any)} className="space-y-4">
                           <FormField
                             control={categoryForm.control}
                             name="name"
-                            render={({ field }) => (
+                            render={({ field }: any) => (
                               <FormItem>
                                 <FormLabel>Category Name</FormLabel>
                                 <FormControl>
@@ -1213,7 +1320,7 @@ export default function AdminPanel() {
                           <FormField
                             control={categoryForm.control}
                             name="description"
-                            render={({ field }) => (
+                            render={({ field }: any) => (
                               <FormItem>
                                 <FormLabel>Description</FormLabel>
                                 <FormControl>
@@ -1226,7 +1333,7 @@ export default function AdminPanel() {
                           <FormField
                             control={categoryForm.control}
                             name="icon"
-                            render={({ field }) => (
+                            render={({ field }: any) => (
                               <FormItem>
                                 <FormLabel>Icon (optional)</FormLabel>
                                 <FormControl>
@@ -1239,7 +1346,7 @@ export default function AdminPanel() {
                           <FormField
                             control={categoryForm.control}
                             name="color"
-                            render={({ field }) => (
+                            render={({ field }: any) => (
                               <FormItem>
                                 <FormLabel>Color</FormLabel>
                                 <FormControl>
@@ -1252,7 +1359,7 @@ export default function AdminPanel() {
                           <FormField
                             control={categoryForm.control}
                             name="isActive"
-                            render={({ field }) => (
+                            render={({ field }: any) => (
                               <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
                                 <div className="space-y-0.5">
                                   <FormLabel>Active</FormLabel>
@@ -1301,7 +1408,7 @@ export default function AdminPanel() {
                         </DialogDescription>
                       </DialogHeader>
                       <Form {...productForm}>
-                        <form onSubmit={productForm.handleSubmit(handleProductSubmit)} className="space-y-4">
+                        <form onSubmit={productForm.handleSubmit(handleProductSubmit as any)} className="space-y-4">
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <FormField
                               control={productForm.control}
@@ -1801,9 +1908,9 @@ export default function AdminPanel() {
                       </DialogDescription>
                     </DialogHeader>
                     <Form {...notificationForm}>
-                      <form onSubmit={notificationForm.handleSubmit((data: NotificationFormData) => {
+                      <form onSubmit={notificationForm.handleSubmit(((data: NotificationFormData) => {
                         sendNotificationMutation.mutate(data);
-                      })} className="space-y-4">
+                      }) as any)} className="space-y-4">
                         <FormField
                           control={notificationForm.control}
                           name="title"

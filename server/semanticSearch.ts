@@ -43,9 +43,9 @@ export class SemanticSearchService {
       // Score products based on query relevance
       const scoredProducts = allProducts.map((product: any) => {
         let score = 0;
-        const productName = product.name.toLowerCase();
+        const productName = (product.name || '').toLowerCase();
         const productDesc = (product.description || '').toLowerCase();
-        const productCategory = (product.category?.name || '').toLowerCase();
+        const productCategory = ((product.category?.name) || product.categoryId || '').toLowerCase();
         
         // Exact name match
         if (productName.includes(queryLower)) score += 10;
@@ -94,9 +94,9 @@ export class SemanticSearchService {
       
       // Find products that match the query
       for (const product of allProducts) {
-        const productName = product.name.toLowerCase();
+        const productName = (product.name || '').toLowerCase();
         if (productName.includes(queryLower) && suggestions.size < limit) {
-          suggestions.add(product.name);
+          suggestions.add(product.name || '');
         }
       }
       

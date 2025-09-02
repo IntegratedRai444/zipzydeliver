@@ -8,7 +8,7 @@ interface FCMNotificationsProps {
   partnerId: string;
 }
 
-export const FCMNotifications: React.FC<FCMNotificationsProps> = ({ partnerId }) => {
+const FCMNotifications: React.FC<FCMNotificationsProps> = ({ partnerId }) => {
   const [fcmToken, setFcmToken] = useState<string>('');
   const [notifications, setNotifications] = useState<any[]>([]);
   const [isSubscribed, setIsSubscribed] = useState(false);
@@ -151,3 +151,5 @@ export const FCMNotifications: React.FC<FCMNotificationsProps> = ({ partnerId })
     </Card>
   );
 };
+
+export default FCMNotifications;

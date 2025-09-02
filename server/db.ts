@@ -1,37 +1,27 @@
-import { neon } from '@neondatabase/serverless';
-import { drizzle } from 'drizzle-orm/neon-http';
-import * as schema from "@shared/schema";
+// MongoDB-based database interface
+// Compatibility layer so services can call db.* and delegate to LocalMongoDBStorage
 import { config } from 'dotenv';
 import { resolve } from 'path';
+import { LocalMongoDBStorage } from './storage-local-mongodb';
 
 // Load .env file manually
 config({ path: resolve(process.cwd(), '.env') });
 
-// For development, use a mock database if no DATABASE_URL is set
-let db: any;
+// Create a singleton storage instance for compatibility usage
+const storage = new LocalMongoDBStorage();
 
-if (!process.env.DATABASE_URL) {
-  console.log('⚠️ No DATABASE_URL found, using mock database for development');
-  // Create a mock database object
-  db = {
-    // Add mock methods as needed
-    query: () => Promise.resolve([]),
-    insert: () => Promise.resolve({}),
-    update: () => Promise.resolve({}),
-    delete: () => Promise.resolve({}),
-  };
-} else {
-  // Configure to ignore SSL certificate issues for development
-  process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+const db = {
+  // Minimal surface used by services
+  getProducts: () => storage.getProducts(),
+  getProduct: (id: string) => storage.getProductById(id),
+  getOrders: (userId?: string) => (userId ? storage.getOrdersByUser(userId) : storage.getOrders()),
+  getOrder: (id: string) => storage.getOrderById(id),
 
-  // Use HTTP connection instead of WebSocket to avoid SSL issues
-  const sql = neon(process.env.DATABASE_URL, {
-    fetchOptions: {
-      cache: 'no-store',
-    },
-  });
-
-  db = drizzle(sql, { schema });
-}
+  // Generic fallbacks kept for any legacy callers
+  query: () => Promise.resolve([] as never[]),
+  insert: () => Promise.resolve({} as Record<string, never>),
+  update: () => Promise.resolve({} as Record<string, never>),
+  delete: () => Promise.resolve({} as Record<string, never>)
+};
 
 export { db };

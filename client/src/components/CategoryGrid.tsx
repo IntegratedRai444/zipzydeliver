@@ -42,13 +42,16 @@ export default function CategoryGrid({ onCategorySelect, selectedCategory }: Cat
 
   if (isLoading) {
     return (
-      <div className="mb-8">
-        <h3 className="text-lg font-semibold text-foreground mb-4">Categories</h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+      <div className="mb-16">
+        <div className="mb-8">
+          <h3 className="text-3xl font-bold text-gray-800 mb-2">Categories</h3>
+          <p className="text-gray-600">Explore our wide range of products</p>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="flex flex-col items-center p-4 bg-card rounded-xl border border-border">
-              <Skeleton className="w-12 h-12 rounded-full mb-2" />
-              <Skeleton className="h-4 w-16" />
+            <div key={i} className="flex flex-col items-center p-6 bg-white rounded-2xl border border-gray-200">
+              <Skeleton className="w-16 h-16 rounded-2xl mb-4" />
+              <Skeleton className="h-4 w-20" />
             </div>
           ))}
         </div>
@@ -65,21 +68,25 @@ export default function CategoryGrid({ onCategorySelect, selectedCategory }: Cat
   };
 
   return (
-    <div className="mb-8">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-foreground">Categories</h3>
+    <div className="mb-16">
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h3 className="text-3xl font-bold text-gray-800 mb-2">Categories</h3>
+          <p className="text-gray-600">Explore our wide range of products</p>
+        </div>
         {selectedCategory && (
           <Button 
             variant="outline" 
             size="sm" 
             onClick={() => onCategorySelect("")}
+            className="border-purple-300 text-purple-600 hover:bg-purple-50 rounded-xl"
             data-testid="button-clear-category"
           >
-            Clear Filter
+            ✕ Clear Filter
           </Button>
         )}
       </div>
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6">
         {safeCategories.map((category) => {
           const iconPath = categoryIcons[category.name.toLowerCase()] || categoryIcons["essentials"];
           const colorClass = categoryColors[category.name.toLowerCase()] || "bg-purple-500";
@@ -89,19 +96,19 @@ export default function CategoryGrid({ onCategorySelect, selectedCategory }: Cat
             <button
               key={category.id}
               onClick={() => handleCategoryClick(category.id)}
-              className={`flex flex-col items-center p-6 rounded-2xl transition-all duration-300 ${
+              className={`flex flex-col items-center p-6 rounded-2xl transition-all duration-300 transform hover:-translate-y-1 ${
                 isSelected 
-                  ? "glass-intense scale-105 glow-purple" 
-                  : "glass-card hover:scale-105 card-hover"
+                  ? "bg-gradient-to-br from-purple-100 to-pink-100 border-2 border-purple-300 shadow-xl scale-105" 
+                  : "bg-white border border-gray-200 hover:border-purple-300 hover:shadow-lg"
               }`}
               data-testid={`button-category-${category.name.toLowerCase()}`}
             >
-              <div className={`${colorClass} text-white rounded-2xl p-4 mb-3 ${isSelected ? 'pulse-glow' : ''} hover:scale-110 transition-transform duration-300`}>
+              <div className={`${colorClass} text-white rounded-2xl p-4 mb-4 ${isSelected ? 'shadow-lg scale-110' : 'hover:scale-110'} transition-transform duration-300`}>
                 <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={iconPath}></path>
                 </svg>
               </div>
-              <span className={`text-sm font-medium ${isSelected ? 'gradient-text' : 'text-foreground'}`}>
+              <span className={`text-sm font-semibold ${isSelected ? 'text-purple-700' : 'text-gray-700'}`}>
                 {category.name}
               </span>
             </button>

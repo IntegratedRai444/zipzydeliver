@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { useLocation } from 'wouter';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
+import { getErrorMessage, logError } from '@/lib/errorHandling';
 import type { Message } from '@/types/schema';
 
 export function DeliveryChat() {
@@ -21,7 +22,7 @@ export function DeliveryChat() {
   const orderId = params?.orderId;
 
   // Get delivery messages
-  const { data: messages = [], isLoading } = useQuery<Message[]>({
+  const { data: messages = [], isLoading, error } = useQuery<Message[]>({
     queryKey: ['/api/deliveries', orderId, 'messages'],
     enabled: !!orderId,
     refetchInterval: 5000, // Poll for new messages every 5 seconds
@@ -74,6 +75,33 @@ export function DeliveryChat() {
           <div className="animate-pulse">
             <div className="h-8 bg-gray-200 dark:bg-gray-800 rounded w-64 mb-8"></div>
             <div className="h-96 bg-gray-200 dark:bg-gray-800 rounded"></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
+        <div className="max-w-2xl mx-auto px-4">
+          <div className="text-center">
+            <div className="text-red-500 mb-4">
+              <Truck className="h-12 w-12 mx-auto" />
+            </div>
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+              Failed to load messages
+            </h3>
+            <p className="text-sm text-gray-500">
+              {getErrorMessage(error)}
+            </p>
+            <Button 
+              onClick={() => window.location.reload()} 
+              className="mt-4"
+              variant="outline"
+            >
+              Try Again
+            </Button>
           </div>
         </div>
       </div>
@@ -159,8 +187,8 @@ export function DeliveryChat() {
                     <div className="bg-indigo-600 text-white rounded-lg p-3">
                       <div className="flex space-x-1">
                         <div className="w-2 h-2 bg-white rounded-full animate-bounce"></div>
-                        <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                        <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                        <div className="w-2 h-2 bg-white rounded-full animate-bounce animate-delay-100"></div>
+                        <div className="w-2 h-2 bg-white rounded-full animate-bounce animate-delay-200"></div>
                       </div>
                     </div>
                   </div>

@@ -22,13 +22,24 @@ async function throwIfResNotOk(res: Response) {
   }
 }
 
+function buildUrl(rawUrl: string): string {
+  const apiBase = (import.meta as any).env?.VITE_API_BASE || "";
+  const isAbsolute = /^https?:\/\//i.test(rawUrl);
+  let url = rawUrl;
+  if (!isAbsolute) {
+    if (!url.startsWith("/")) url = "/" + url;
+    url = `${apiBase}${url}`;
+  }
+  return url;
+}
+
 export async function apiRequest(
   method: string,
   url: string,
   data?: unknown | undefined,
 ): Promise<any> {
   try {
-    const res = await fetch(url, {
+    const res = await fetch(buildUrl(url), {
       method,
       headers: data ? { "Content-Type": "application/json" } : {},
       body: data ? JSON.stringify(data) : undefined,
@@ -65,7 +76,7 @@ export const getQueryFn: <T>(options: {
       url += `?${qs}`;
     }
 
-    const res = await fetch(url, {
+    const res = await fetch(buildUrl(url), {
       credentials: "include",
     });
 
@@ -83,8 +94,9 @@ export const queryClient = new QueryClient({
       queryFn: getQueryFn({ on401: "throw" }),
       refetchInterval: false,
       refetchOnWindowFocus: false,
-      staleTime: 0, // Allow refetching when data is stale
+      staleTime: 300000, // Data is fresh for 5 minutes by default (increased)
       retry: false,
+      gcTime: 300000, // Keep in cache for 5 minutes
     },
     mutations: {
       retry: false,

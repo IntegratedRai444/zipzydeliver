@@ -4,6 +4,26 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
+import { emitCartUpdated } from "@/lib/cartEvents";
+import {
+  Utensils,
+  Coffee,
+  CupSoda,
+  Pizza,
+  IceCream,
+  Candy,
+  ShoppingBasket,
+  Pill,
+  Thermometer,
+  BatteryCharging,
+  Plug,
+  Headphones,
+  HardDrive,
+  Calculator as CalcIcon,
+  Book,
+  PenLine,
+  StickyNote
+} from "lucide-react";
 
 interface Product {
   id: string;
@@ -32,6 +52,13 @@ export default function ProductCard({ product }: ProductCardProps) {
 
   const addToCartMutation = useMutation({
     mutationFn: async () => {
+      // optimistic update: add a lightweight item to cache
+      queryClient.setQueryData<any>(['/api/cart'], (prev) => {
+        const list = Array.isArray(prev) ? prev : (prev?.cartItems || []);
+        const cartItems = Array.isArray(prev) ? prev : (prev?.cartItems || []);
+        const next = [...cartItems, { id: `tmp_${product.id}_${Date.now()}`, quantity: 1, product }];
+        return Array.isArray(prev) ? next : { ...(prev || {}), cartItems: next };
+      });
       await apiRequest("POST", "/api/cart/add", {
         productId: product.id,
         quantity: 1
@@ -39,6 +66,7 @@ export default function ProductCard({ product }: ProductCardProps) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/cart'] });
+      try { emitCartUpdated(); } catch {}
       toast({
         title: "Added to cart",
         description: `${product.name} has been added to your cart`,
@@ -65,56 +93,51 @@ export default function ProductCard({ product }: ProductCardProps) {
     },
   });
 
-  // Always resolve to our local 3D icon set based on product name keywords
-  const getImageUrl = () => {
-    const keywordToIcon: Array<{ keywords: string[]; file: string }> = [
-      { keywords: ['pizza'], file: 'Margherita_pizza_3D_c52eadee.png' },
-      { keywords: ['biryani', 'mutton'], file: 'Chicken_biryani_bowl_3D_441a1a37.png' },
-      { keywords: ['dosa'], file: 'Masala_dosa_plate_3D_37f8cf83.png' },
-      { keywords: ['burger'], file: 'Vegetarian_burger_3D_79678194.png' },
-      { keywords: ['paneer', 'masala', 'butter'], file: 'Paneer_butter_masala_3D_3198cabf.png' },
-      { keywords: ['tikka', 'chicken'], file: 'Chicken_tikka_skewers_3D_8bbb3d4e.png' },
-      { keywords: ['fried', 'rice'], file: 'Veg_fried_rice_3D_623e1b00.png' },
-      { keywords: ['wrap'], file: 'Chicken_wrap_halved_3D_ccdd72d7.png' },
-      { keywords: ['coffee'], file: 'Cold_coffee_glass_3D_6edc5772.png' },
-      { keywords: ['orange', 'juice'], file: 'Orange_juice_glass_3D_506e022c.png' },
-      { keywords: ['mango', 'smoothie'], file: 'Mango_smoothie_glass_3D_74760f4e.png' },
-      { keywords: ['milkshake', 'chocolate'], file: 'Chocolate_milkshake_glass_3D_90dece7b.png' },
-      { keywords: ['milk'], file: 'Fresh_milk_bottle_3D_1426faed.png' },
-      { keywords: ['rice', 'basmati'], file: 'Basmati_rice_bag_3D_16898cc6.png' },
-      { keywords: ['egg', 'eggs'], file: 'Fresh_eggs_carton_3D_4f97b5d1.png' },
-      { keywords: ['oil'], file: 'Cooking_oil_bottle_3D_bde43972.png' },
-      { keywords: ['bread'], file: 'Wheat_bread_loaf_3D_35d9d9fa.png' },
-      { keywords: ['notebook', 'notes', 'paper'], file: 'Notebook_set_stack_3D_504a6548.png' },
-      { keywords: ['pen', 'pens'], file: 'Ballpoint_pens_pack_3D_ab4ef8e3.png' },
-      { keywords: ['highlighter'], file: 'Highlighter_set_colorful_3D_047f6011.png' },
-      { keywords: ['geometry', 'box', 'calculator'], file: 'Geometry_box_complete_3D_3451204c.png' },
-      { keywords: ['shampoo'], file: 'Shampoo_bottle_purple_3D_42a5da47.png' },
-      { keywords: ['soap'], file: 'Soap_bar_white_3D_535ac7e1.png' },
-      { keywords: ['toothpaste'], file: 'Toothpaste_tube_white_3D_9e095e9b.png' },
-      { keywords: ['sanitizer'], file: 'Hand_sanitizer_pump_3D_bfb23cc2.png' },
-      { keywords: ['thermometer'], file: 'Digital_thermometer_medical_3D_d4653a47.png' },
-      { keywords: ['power', 'bank', 'charger', 'cable'], file: 'Power_bank_black_3D_c180205c.png' },
-      { keywords: ['chips', 'snack'], file: 'Potato_chips_bag_3D_769fb315.png' },
-      { keywords: ['pasta', 'alfredo'], file: 'Pasta_alfredo_creamy_3D_bb23a4b7.png' },
-      { keywords: ['fish', 'curry'], file: 'Fish_curry_bowl_3D_3d07a1a9.png' }
-    ];
+  // Icon-only representation instead of images
+  const getIconForProduct = () => {
+    const name = (product.name || '').toLowerCase();
+    const category = (product.category?.name || '').toLowerCase();
 
-    const name = product.name.toLowerCase();
-    for (const mapping of keywordToIcon) {
-      if (mapping.keywords.some(k => name.includes(k))) {
-        return new URL(`../../../attached_assets/generated_images/${mapping.file}`, import.meta.url).href;
-      }
-    }
+    // Food & drinks
+    if (/(pizza|margherita)/.test(name)) return Pizza;
+    if (/(burger|sandwich)/.test(name)) return Utensils;
+    if (/(salad|caesar)/.test(name)) return Utensils;
+    if (/(coffee|latte|cappuccino)/.test(name)) return Coffee;
+    if (/(tea|juice|soda|soft drink|energy)/.test(name)) return CupSoda;
+    if (/(fries|chips)/.test(name)) return Candy;
+    if (/(cake|chocolate|candy)/.test(name)) return Candy;
+    if (/(ice cream|sundae)/.test(name)) return IceCream;
+    if (/(soup|noodle|ramen)/.test(name)) return Utensils;
+    if (/(popcorn)/.test(name)) return Candy;
+    if (/(grocery|snack)/.test(category)) return ShoppingBasket;
 
-    // Default generic icon if no match
-    return new URL(`../../../attached_assets/generated_images/Notebook_set_stack_3D_504a6548.png`, import.meta.url).href;
+    // Medicine & health
+    if (/(paracetamol|tablet|vitamin|medicine)/.test(name)) return Pill;
+    if (/(thermometer|temperature)/.test(name)) return Thermometer;
+    if (/(sanitizer|hand)/.test(name)) return Pill;
+
+    // Electronics
+    if (/(charger|power bank|battery)/.test(name)) return BatteryCharging;
+    if (/(usb|cable|plug)/.test(name)) return Plug;
+    if (/(earbud|headphone)/.test(name)) return Headphones;
+    if (/(memory|hard ?drive|card)/.test(name)) return HardDrive;
+
+    // Stationery
+    if (/(calculator)/.test(name)) return CalcIcon;
+    if (/(notebook|book)/.test(name)) return Book;
+    if (/(pen|pencil)/.test(name)) return PenLine;
+    if (/(sticky|note)/.test(name)) return StickyNote;
+
+    // Category fallbacks
+    if (category.includes('electronics')) return BatteryCharging;
+    if (category.includes('medicine') || category.includes('health')) return Pill;
+    if (category.includes('stationery') || category.includes('book')) return Book;
+    if (category.includes('beverage') || category.includes('food')) return Utensils;
+
+    return Utensils;
   };
-  
-  const imageUrl = getImageUrl();
-  
-  // Debug logging
-  console.log(`Product: ${product.name}, Image URL: ${imageUrl}, Original: ${product.imageUrl}`);
+
+  const Icon = getIconForProduct();
 
   const categoryColor = product.category?.color || "#6366F1";
   const categoryName = product.category?.name || "General";
@@ -126,7 +149,7 @@ export default function ProductCard({ product }: ProductCardProps) {
     : 0;
 
   return (
-    <div className="glass-card rounded-2xl overflow-hidden card-hover glow-purple card-tilt-shine" data-testid={`card-product-${product.id}`}
+    <div className="glass-card relative rounded-2xl card-hover glow-purple card-tilt-shine" data-testid={`card-product-${product.id}`}
       onMouseMove={(e) => {
         const target = e.currentTarget as HTMLDivElement;
         const rect = target.getBoundingClientRect();
@@ -138,23 +161,25 @@ export default function ProductCard({ product }: ProductCardProps) {
     >
       <div className="relative">
         <div className="relative w-full overflow-hidden rounded-md">
-          <div className="aspect-[4/3] w-full relative">
-            {/* Skeleton */}
+          <div className="aspect-[4/3] w-full relative flex items-center justify-center bg-gradient-to-br from-purple-500/10 to-blue-500/10">
             <div className="absolute inset-0 bg-white/5 animate-pulse" id={`skeleton-${product.id}`}></div>
-            <img 
-              src={imageUrl} 
-              alt={product.name} 
-              className="h-full w-full object-cover"
-              onError={(e) => {
-                console.warn(`Failed to load image for ${product.name}:`, imageUrl);
-                (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&h=300&fit=crop";
-              }}
-              onLoad={() => {
-                console.log(`Successfully loaded image for ${product.name}:`, imageUrl);
-                const el = document.getElementById(`skeleton-${product.id}`);
-                if (el) el.style.display = 'none';
-              }}
-            />
+            <div className="relative z-10 flex items-center justify-center w-full h-full">
+              <div className="icon-card tilt-hover w-24 h-24 sm:w-28 sm:h-28 md:w-32 md:h-32 rounded-2xl glass-card card-tilt-shine flex items-center justify-center">
+                <div className="icon-stack">
+                  <div className="icon-accent">
+                    <Icon className="w-16 h-16 text-blue-400/60 spin-slow" />
+                  </div>
+                  <Icon className="w-12 h-12 sm:w-14 sm:h-14 text-purple-300" />
+                </div>
+                {product.isPopular && (
+                  <div className="icon-badge">
+                    <svg className="w-4 h-4 text-purple-500" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                      <path d="M12 2l2.39 4.84L20 7.27l-3.64 3.55L17.77 16 12 13.27 6.23 16l1.41-5.18L4 7.27l5.61-.43L12 2z" />
+                    </svg>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
         

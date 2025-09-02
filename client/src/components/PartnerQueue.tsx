@@ -33,7 +33,7 @@ interface PartnerQueueProps {
   onOrderAccept: (orderId: string) => void;
 }
 
-export const PartnerQueue: React.FC<PartnerQueueProps> = ({ onOrderAccept }) => {
+const PartnerQueue: React.FC<PartnerQueueProps> = ({ onOrderAccept }) => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -206,3 +206,5 @@ export const PartnerQueue: React.FC<PartnerQueueProps> = ({ onOrderAccept }) => 
     </div>
   );
 };
+
+export default PartnerQueue;

@@ -42,7 +42,7 @@ interface ActiveDeliveryProps {
   onLocationUpdate: (lat: number, lng: number) => void;
 }
 
-export const ActiveDelivery: React.FC<ActiveDeliveryProps> = ({ 
+const ActiveDelivery: React.FC<ActiveDeliveryProps> = ({ 
   delivery, 
   onStatusUpdate, 
   onLocationUpdate 
@@ -373,3 +373,5 @@ export const ActiveDelivery: React.FC<ActiveDeliveryProps> = ({
     </div>
   );
 };
+
+export default ActiveDelivery;

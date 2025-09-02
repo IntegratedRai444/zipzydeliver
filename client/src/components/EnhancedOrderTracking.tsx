@@ -65,7 +65,7 @@ interface OrderTrackingData {
   deliveredAt?: Date;
 }
 
-export const EnhancedOrderTracking: React.FC<EnhancedOrderTrackingProps> = ({ orderId }) => {
+const EnhancedOrderTracking: React.FC<EnhancedOrderTrackingProps> = ({ orderId }) => {
   const { user } = useAuth();
   const [orderData, setOrderData] = useState<OrderTrackingData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -522,3 +522,5 @@ export const EnhancedOrderTracking: React.FC<EnhancedOrderTrackingProps> = ({ or
     </div>
   );
 };
+
+export default EnhancedOrderTracking;

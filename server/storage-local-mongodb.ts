@@ -16,7 +16,7 @@ const userSchema = new mongoose.Schema({
   firstName: String,
   lastName: String,
   phone: String,
-  address: String,
+  address: String, // This will store hostel address
   role: { type: String, default: 'user' },
   isAdmin: { type: Boolean, default: false },
   isActive: { type: Boolean, default: true },
@@ -131,6 +131,31 @@ const orderTrackingSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
+// Delivery Message Schema
+const deliveryMessageSchema = new mongoose.Schema({
+  id: String,
+  orderId: { type: String, index: true },
+  senderId: String,
+  content: String,
+  createdAt: { type: Date, default: Date.now }
+});
+
+// Conversation and Message Schemas (basic)
+const conversationSchema = new mongoose.Schema({
+  id: String,
+  userId: String,
+  title: String,
+  createdAt: { type: Date, default: Date.now }
+});
+
+const conversationMessageSchema = new mongoose.Schema({
+  id: String,
+  conversationId: { type: String, index: true },
+  senderId: String,
+  content: String,
+  createdAt: { type: Date, default: Date.now }
+});
+
 // Delivery Partner Schema
 const deliveryPartnerSchema = new mongoose.Schema({
   id: String,
@@ -177,6 +202,9 @@ const Notification = mongoose.model('Notification', notificationSchema);
 const OrderTracking = mongoose.model('OrderTracking', orderTrackingSchema);
 const DeliveryPartner = mongoose.model('DeliveryPartner', deliveryPartnerSchema);
 const LocationHistory = mongoose.model('LocationHistory', locationHistorySchema);
+const DeliveryMessage = mongoose.model('DeliveryMessage', deliveryMessageSchema);
+const Conversation = mongoose.model('Conversation', conversationSchema);
+const ConversationMessage = mongoose.model('ConversationMessage', conversationMessageSchema);
 
 // Payment schema
 const paymentSchema = new mongoose.Schema({
@@ -231,14 +259,111 @@ export class LocalMongoDBStorage {
   }
 
   async getUserCredentials(identifier: string) {
-    return await UserCredential.findOne({
+    // Detect duplicates and log a warning
+    const matches = await UserCredential.find({
       $or: [{ email: identifier }, { userId: identifier }]
     });
+    if (matches.length > 1) {
+      console.warn(
+        '[AUTH][WARN] Multiple credentials found for identifier:',
+        identifier,
+        'count=', matches.length,
+        'ids=', matches.map((c: any) => c._id?.toString())
+      );
+      // Prefer the most recently updated/created record
+      matches.sort((a: any, b: any) => {
+        const at = new Date(a.updatedAt || a.createdAt || 0).getTime();
+        const bt = new Date(b.updatedAt || b.createdAt || 0).getTime();
+        return bt - at;
+      });
+      return matches[0];
+    }
+    return matches[0] || null;
+  }
+
+  // Utility: remove duplicate credentials keeping the most recent per email/userId
+  async dedupeUserCredentials(): Promise<{ removed: number }> {
+    const all = await UserCredential.find({});
+    const keyToCreds: Record<string, any[]> = {};
+    for (const cred of all) {
+      const keys = [cred.email, cred.userId].filter(Boolean);
+      for (const k of keys) {
+        if (!keyToCreds[k]) keyToCreds[k] = [];
+        keyToCreds[k].push(cred);
+      }
+    }
+    const toRemoveIds: string[] = [];
+    for (const [key, creds] of Object.entries(keyToCreds)) {
+      if (creds.length <= 1) continue;
+      creds.sort((a: any, b: any) => {
+        const at = new Date(a.updatedAt || a.createdAt || 0).getTime();
+        const bt = new Date(b.updatedAt || b.createdAt || 0).getTime();
+        return bt - at;
+      });
+      // keep first, remove rest
+      const remove = creds.slice(1);
+      for (const r of remove) {
+        toRemoveIds.push(r._id);
+      }
+      console.warn('[AUTH][WARN] Dedupe credentials for key', key, 'removing', remove.map(r => r._id?.toString()));
+    }
+    if (toRemoveIds.length) {
+      await UserCredential.deleteMany({ _id: { $in: toRemoveIds } });
+    }
+    return { removed: toRemoveIds.length };
+  }
+
+  async clearTestUsers() {
+    try {
+      // Clear test users and their credentials
+      await User.deleteMany({
+        $or: [
+          { email: 'rishabh.kapoor@test.com' },
+          { email: 'rishabhkapoor@atomicmail.io' }
+        ]
+      });
+      
+      await UserCredential.deleteMany({
+        $or: [
+          { email: 'rishabh.kapoor@test.com' },
+          { email: 'rishabhkapoor@atomicmail.io' }
+        ]
+      });
+      
+      console.log('✅ Test users cleared');
+    } catch (error) {
+      console.error('❌ Error clearing test users:', error);
+      throw error;
+    }
   }
 
   // Product methods
   async getProducts() {
-    return await Product.find();
+    const products = await Product.find();
+    // Backfill imageUrl with a deterministic remote placeholder per product name
+    return products.map((p: any) => {
+      const obj = p.toObject ? p.toObject() : p;
+      const img = obj.imageUrl as string | undefined;
+      const isAbsolute = typeof img === 'string' && /^https?:\/\//i.test(img);
+      if (!isAbsolute) {
+        const seed = encodeURIComponent((obj.name || 'product').toString());
+        obj.imageUrl = `https://picsum.photos/seed/${seed}/400/300`;
+      }
+      return obj;
+    });
+  }
+
+  // Admin maintenance helpers
+  async deleteProductsByIds(ids: string[]): Promise<{ deleted: number }> {
+    const res = await Product.deleteMany({ id: { $in: ids } });
+    return { deleted: res.deletedCount || 0 };
+  }
+
+  async deleteProductsByNames(names: string[]): Promise<{ deleted: number }> {
+    // Case-insensitive name match
+    const patterns = names.map(n => new RegExp(`^${n.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&')}$`, 'i'));
+    const res = await Product.deleteMany({ name: { $in: patterns } });
+    return { deleted: res.deletedCount || 0 };
   }
 
   async getProductById(id: string) {
@@ -249,9 +374,45 @@ export class LocalMongoDBStorage {
     return await Product.find({ categoryId });
   }
 
+  async createProduct(productData: any) {
+    const product = new Product({
+      id: productData.id || `prod_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      ...productData,
+      createdAt: new Date()
+    });
+    await product.save();
+    return product.toObject();
+  }
+
+  async updateProduct(id: string, updates: any) {
+    const updated = await Product.findOneAndUpdate({ id }, updates, { new: true });
+    return updated ? updated.toObject() : null;
+  }
+
+  async updateProductByName(name: string, updates: any) {
+    // Case-insensitive exact name match
+    const updated = await Product.findOneAndUpdate({ name: new RegExp(`^${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') }, updates, { new: true });
+    return updated ? updated.toObject() : null;
+  }
+
+  async deleteProduct(id: string) {
+    const deleted = await Product.findOneAndDelete({ id });
+    return !!deleted;
+  }
+
   // Category methods
   async getCategories() {
     return await Category.find();
+  }
+
+  async createCategory(categoryData: any) {
+    const category = new Category({
+      id: categoryData.id || `cat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      ...categoryData,
+      createdAt: new Date()
+    });
+    await category.save();
+    return category.toObject();
   }
 
   // Order methods
@@ -326,6 +487,70 @@ export class LocalMongoDBStorage {
       console.error(`❌ Failed to get order tracking for ${orderId}:`, error);
       return [];
     }
+  }
+
+  // Delivery messages
+  async addDeliveryMessage(orderId: string, senderId: string, content: string) {
+    try {
+      const message = new DeliveryMessage({
+        id: `dmsg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        orderId,
+        senderId,
+        content,
+        createdAt: new Date()
+      });
+      await message.save();
+      return message.toObject();
+    } catch (error) {
+      console.error('❌ Failed to add delivery message:', error);
+      throw error;
+    }
+  }
+
+  async listDeliveryMessages(orderId: string, limit: number = 100) {
+    try {
+      const messages = await DeliveryMessage.find({ orderId })
+        .sort({ createdAt: 1 })
+        .limit(limit);
+      return messages.map(m => m.toObject());
+    } catch (error) {
+      console.error('❌ Failed to list delivery messages:', error);
+      return [];
+    }
+  }
+
+  // Conversations (basic)
+  async createConversation(userId: string, title?: string) {
+    const conv = new Conversation({
+      id: `conv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      userId,
+      title: title || 'New conversation',
+      createdAt: new Date()
+    });
+    await conv.save();
+    return conv.toObject();
+  }
+
+  async listConversations(userId: string, limit: number = 50) {
+    const convs = await Conversation.find({ userId }).sort({ createdAt: -1 }).limit(limit);
+    return convs.map(c => c.toObject());
+  }
+
+  async addConversationMessage(conversationId: string, senderId: string, content: string) {
+    const msg = new ConversationMessage({
+      id: `cmsg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      conversationId,
+      senderId,
+      content,
+      createdAt: new Date()
+    });
+    await msg.save();
+    return msg.toObject();
+  }
+
+  async listConversationMessages(conversationId: string, limit: number = 200) {
+    const msgs = await ConversationMessage.find({ conversationId }).sort({ createdAt: 1 }).limit(limit);
+    return msgs.map(m => m.toObject());
   }
 
   // Delivery partner methods
@@ -698,18 +923,22 @@ export class LocalMongoDBStorage {
         await User.findOneAndUpdate({ id: user.id }, user, { upsert: true });
       }
 
-      // Create admin user credential
+      // Create admin user credential (idempotent, env-driven default password)
       const bcrypt = require('bcryptjs');
-      const adminPasswordHash = await bcrypt.hash('rishabhkapoor@0444', 10);
-      await UserCredential.findOneAndUpdate(
-        { email: 'rishabhkapoor@atomicmail.io' },
-        {
-          userId: 'admin-1756623849620',
-          email: 'rishabhkapoor@atomicmail.io',
-          passwordHash: adminPasswordHash
-        },
-        { upsert: true }
-      );
+      const existingCred = await UserCredential.findOne({ email: 'rishabhkapoor@atomicmail.io' });
+      if (!existingCred) {
+        const defaultAdminPassword = process.env.ADMIN_DEFAULT_PASSWORD || 'Rishabhkapoor@0444';
+        const adminPasswordHash = await bcrypt.hash(defaultAdminPassword, 10);
+        await UserCredential.findOneAndUpdate(
+          { email: 'rishabhkapoor@atomicmail.io' },
+          {
+            userId: 'admin-1756623849620',
+            email: 'rishabhkapoor@atomicmail.io',
+            passwordHash: adminPasswordHash
+          },
+          { upsert: true }
+        );
+      }
 
       // Create comprehensive test orders
       const testOrders = [

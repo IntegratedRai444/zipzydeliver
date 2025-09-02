@@ -1,14 +1,16 @@
 import { useQuery } from "@tanstack/react-query";
+import { getQueryFn } from "@/lib/queryClient";
 import { useState, useEffect } from "react";
 import Header from "@/components/Header";
+import { Rocket, Timer, ShieldCheck, Truck, Coins } from "lucide-react";
 import CategoryGrid from "@/components/CategoryGrid";
 import ProductCard from "@/components/ProductCard";
-import CartSidebar from "@/components/CartSidebar";
 import { useAuth } from "@/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { getErrorMessage } from "@/lib/errorHandling";
 
 interface Product {
   id: string;
@@ -54,10 +56,14 @@ export default function Home() {
     );
   }
 
-  // Get cart items for bottom cart summary
-  const { data: cartItems = [] } = useQuery<{id: string; quantity: number}[]>({
+  // Get cart items for bottom cart summary (unwrap server shape { success, cartItems })
+  const { data: cartItems = [], error: cartError, isLoading: cartLoading } = useQuery<{ cartItems: {id: string; quantity: number}[] } | null>({
     queryKey: ['/api/cart'],
-    select: (data) => data || []
+    queryFn: getQueryFn({ on401: "returnNull" }),
+    select: (data) => (data && Array.isArray((data as any).cartItems) ? (data as any).cartItems : []),
+    refetchInterval: 300000, // Refetch every 5 minutes (reduced from 30 seconds)
+    staleTime: 250000, // Data considered fresh for 4+ minutes
+    refetchOnWindowFocus: false, // Don't refetch when window regains focus
   });
 
   const totalItems = Array.isArray(cartItems) 
@@ -65,14 +71,19 @@ export default function Home() {
     : 0;
 
   // Recommendations
-  const { data: recommendations = { items: [] as Product[] }, isLoading: recLoading } = useQuery<{ items: Product[]}>({
+  const { data: recommendations = { items: [] as Product[] }, isLoading: recLoading, error: recError } = useQuery<{ items: Product[]}>({
     queryKey: ['/api/recommendations'],
+    queryFn: getQueryFn({ on401: "returnNull" }),
+    refetchInterval: 300000, // Refetch every 5 minutes
+    staleTime: 250000, // Data considered fresh for 4+ minutes
+    refetchOnWindowFocus: false, // Don't refetch when window regains focus
   });
 
-  const { data: products = [], isLoading: productsLoading } = useQuery<Product[]>({
-    queryKey: ['/api/products', selectedCategory && { category: selectedCategory }].filter(Boolean),
+  const { data: products = [], isLoading: productsLoading, error: productsError } = useQuery<{ products: Product[] }>({
+    queryKey: ['/api/products', selectedCategory && { categoryId: selectedCategory }].filter(Boolean),
     select: (data) => {
-      let filtered = data;
+      const list: Product[] = (data as any)?.products || [];
+      let filtered = list;
 
       // Filter by search query
       if (searchQuery) {
@@ -82,14 +93,23 @@ export default function Home() {
         );
       }
 
+      // Deduplicate by name+price (guards seeded duplicates)
+      const seen = new Set<string>();
+      filtered = filtered.filter((p) => {
+        const key = `${(p.name || '').toLowerCase()}|${p.price}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+
       // Sort products
       switch (sortBy) {
         case 'price-low':
-          return filtered.sort((a, b) => parseFloat(a.price) - parseFloat(b.price));
+          return filtered.sort((a, b) => parseFloat(a.price as any) - parseFloat(b.price as any));
         case 'price-high':
-          return filtered.sort((a, b) => parseFloat(b.price) - parseFloat(a.price));
+          return filtered.sort((a, b) => parseFloat(b.price as any) - parseFloat(a.price as any));
         case 'rating':
-          return filtered.sort((a, b) => parseFloat(b.rating || '0') - parseFloat(a.rating || '0'));
+          return filtered.sort((a, b) => parseFloat((b.rating as any) || '0') - parseFloat((a.rating as any) || '0'));
         case 'popular':
         default:
           return filtered.sort((a, b) => {
@@ -98,38 +118,114 @@ export default function Home() {
             return 0;
           });
       }
-    }
+    },
+    queryFn: getQueryFn({ on401: "returnNull" }),
+    refetchInterval: 300000, // Refetch every 5 minutes
+    staleTime: 250000, // Data considered fresh for 4+ minutes
+    refetchOnWindowFocus: false, // Don't refetch when window regains focus
   });
 
   return (
     <div className="min-h-screen bg-background">
       <Header 
-        onCartClick={() => setIsCartOpen(true)}
+        onCartClick={() => { window.location.href = '/cart'; }}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
       />
       
-      <main className="container mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8 py-6">
-        {/* Welcome Banner with Advanced Dark Theme */}
-        <div className="glass-intense rounded-2xl p-8 mb-6 text-white relative overflow-hidden glow-purple">
-          <div className="flex flex-col sm:flex-row items-center justify-between relative z-10">
+      <main className="container mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8 py-6 main-3d"
+        onMouseMove={(e) => {
+          const target = e.currentTarget as HTMLDivElement;
+          const rect = target.getBoundingClientRect();
+          const mx = ((e.clientX - rect.left) / rect.width) * 100;
+          const my = ((e.clientY - rect.top) / rect.height) * 100;
+          target.style.setProperty('--mx', `${mx}%`);
+          target.style.setProperty('--my', `${my}%`);
+        }}
+      >
+        {/* Hero Section */}
+        <section className="relative rounded-3xl overflow-hidden mb-8 border border-purple-500/20 glow-purple">
+          <div className="relative z-10 px-6 sm:px-10 py-10 sm:py-14 grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
             <div>
-              <h2 className="text-3xl font-bold mb-3 gradient-text" data-testid="text-welcome">
-                Welcome back, {user?.firstName || "Student"}!
-              </h2>
-              <p className="text-gray-300 text-lg">Lightning-fast delivery across your campus in 15-30 minutes</p>
+              <span className="inline-flex items-center gap-2 text-xs font-medium px-3 py-1 rounded-full bg-purple-500/15 border border-purple-400/30 text-purple-300">
+                <Rocket className="w-3.5 h-3.5" /> Zipzy Campus Delivery
+              </span>
+              <h1 className="mt-4 text-4xl sm:text-5xl font-extrabold leading-tight">
+                <span className="gradient-text-soft">Lightning-fast</span> delivery on campus.
+              </h1>
+              <p className="mt-4 text-gray-300 text-base sm:text-lg max-w-xl">
+                Order food, snacks, stationery, and essentials. Track in real-time. Delivered in minutes.
+              </p>
+              <div className="mt-6 flex flex-wrap items-center gap-3">
+                <Button className="btn-glow text-white px-6 py-5">
+                  Order Now
+                </Button>
+                <Button variant="outline" className="border-purple-400/40 text-purple-300 hover:bg-white/5">
+                  Track Order
+                </Button>
+              </div>
+              <div className="mt-6 grid grid-cols-3 gap-3 text-xs text-gray-300">
+                <div className="flex items-center gap-2"><Timer className="w-4 h-4 text-purple-300" /> 15–30 min ETA</div>
+                <div className="flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-purple-300" /> Secure Payments</div>
+                <div className="flex items-center gap-2"><Truck className="w-4 h-4 text-purple-300" /> Live Tracking</div>
+              </div>
             </div>
-            <div className="mt-6 sm:mt-0">
-              <div className="glass-card rounded-xl px-6 py-4 text-center pulse-glow">
-                <div className="text-3xl font-bold gradient-text" data-testid="text-delivery-time">15</div>
-                <div className="text-sm text-gray-400 mt-1">min delivery</div>
+            <div className="relative hidden lg:block">
+              <div className="absolute -top-10 -left-10 w-48 h-48 bg-purple-500/20 blur-3xl rounded-full"></div>
+              <div className="absolute -bottom-10 -right-10 w-64 h-64 bg-blue-500/20 blur-3xl rounded-full"></div>
+              <div className="relative">
+                <div className="icon-card tilt-hover w-64 h-64 mx-auto rounded-3xl glass-card card-tilt-shine flex items-center justify-center">
+                  <div className="icon-stack">
+                    <Truck className="icon-accent w-28 h-28 text-blue-300/50" />
+                    <Rocket className="w-20 h-20 text-purple-200" />
+                  </div>
+                </div>
+                <div className="mt-4 text-center text-sm text-gray-300">
+                  Campus-wide delivery with Zipzy Credits <Coins className="inline w-4 h-4 ml-1 text-yellow-300" />
+                </div>
               </div>
             </div>
           </div>
-          {/* Floating decoration elements */}
-          <div className="absolute -right-12 -top-12 w-32 h-32 bg-purple-500/10 rounded-full blur-xl float-animation"></div>
-          <div className="absolute -left-8 -bottom-8 w-24 h-24 bg-teal-500/10 rounded-full blur-lg float-animation" style={{animationDelay: '2s'}}></div>
-        </div>
+          {/* Hero background */}
+          <div className="absolute inset-0 -z-0 bg-gradient-to-br from-purple-900/40 via-purple-800/20 to-blue-900/30">
+            <div className="absolute right-0 top-0 w-64 h-64 bg-purple-500/20 rounded-full blur-[100px]"></div>
+            <div className="absolute left-10 bottom-0 w-72 h-72 bg-blue-500/20 rounded-full blur-[110px]"></div>
+          </div>
+        </section>
+
+        {/* Order Flow removed as requested */}
+
+        {/* Feature Highlights */}
+        <section className="mb-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="glass-card p-5 rounded-2xl flex items-start gap-3">
+            <div className="p-2 rounded-lg bg-purple-500/15 border border-purple-400/30"><Timer className="w-5 h-5 text-purple-300" /></div>
+            <div>
+              <div className="font-semibold">Fast Delivery</div>
+              <p className="text-sm text-muted-foreground">Average <span className="text-purple-300">15–30 min</span> on campus</p>
+            </div>
+          </div>
+          <div className="glass-card p-5 rounded-2xl flex items-start gap-3">
+            <div className="p-2 rounded-lg bg-purple-500/15 border border-purple-400/30"><ShieldCheck className="w-5 h-5 text-purple-300" /></div>
+            <div>
+              <div className="font-semibold">Secure & Reliable</div>
+              <p className="text-sm text-muted-foreground">Protected payments and verified partners</p>
+            </div>
+          </div>
+          <div className="glass-card p-5 rounded-2xl flex items-start gap-3">
+            <div className="p-2 rounded-lg bg-purple-500/15 border border-purple-400/30"><Truck className="w-5 h-5 text-purple-300" /></div>
+            <div>
+              <div className="font-semibold">Live Tracking</div>
+              <p className="text-sm text-muted-foreground">Track your order in real-time</p>
+            </div>
+          </div>
+          <div className="glass-card p-5 rounded-2xl flex items-start gap-3">
+            <div className="p-2 rounded-lg bg-purple-500/15 border border-purple-400/30"><Coins className="w-5 h-5 text-yellow-300" /></div>
+            <div>
+              <div className="font-semibold">Zipzy Credits</div>
+              <p className="text-sm text-muted-foreground">Earn rewards and redeem on orders</p>
+            </div>
+          </div>
+        </section>
 
         {/* Enhanced Promotional Banners */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
@@ -169,9 +265,23 @@ export default function Home() {
 
         {/* Recommended for you */}
         <div className="mb-8 mt-8">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-foreground">Recommended for you</h3>
-          </div>
+                  <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-foreground">Recommended for you</h3>
+          <Button
+            onClick={() => {
+              // Refresh recommendations and products
+              window.location.reload();
+            }}
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-2"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+            </svg>
+            Refresh
+          </Button>
+        </div>
           {recLoading ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {Array.from({ length: 4 }).map((_, i) => (
@@ -182,6 +292,17 @@ export default function Home() {
                   <Skeleton className="h-6 w-1/2" />
                 </div>
               ))}
+            </div>
+          ) : recError ? (
+            <div className="text-center py-8">
+              <div className="text-red-500 mb-4">
+                <svg className="h-12 w-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+                </svg>
+              </div>
+              <h3 className="text-lg font-medium text-foreground mb-2">Failed to load recommendations</h3>
+              <p className="text-sm text-muted-foreground mb-4">{getErrorMessage(recError)}</p>
+              <Button onClick={() => window.location.reload()} variant="outline">Try Again</Button>
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
@@ -228,10 +349,13 @@ export default function Home() {
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-8">
-            {products.length > 0 ? (
-              products.map((product) => (
-                <ProductCard key={product.id} product={product} />
-              ))
+            {(products as any[]).length > 0 ? (
+              // Avoid showing items already displayed in "Recommended"
+              (products as any[])
+                .filter((p: any) => !(recommendations?.items || []).some((r: any) => r.id === p.id))
+                .map((product: any) => (
+                  <ProductCard key={product.id} product={product} />
+                ))
             ) : (
               <div className="col-span-full text-center py-12">
                 <div className="text-muted-foreground mb-4">
@@ -264,47 +388,27 @@ export default function Home() {
             )}
           </div>
         )}
-      </main>
 
-      {/* Bottom Cart Summary */}
-      {totalItems > 0 && (
-        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-30">
-          <div className="max-w-7xl mx-auto px-4 py-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                <div className="bg-purple-100 p-2 rounded-lg">
-                  <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4m15.6 0L5.4 5H7m0 8L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17M17 13v4a2 2 0 01-2 2H9a2 2 0 01-2-2v-4m8 0V9a2 2 0 00-2-2H9a2 2 0 00-2 2v4.01"></path>
-                  </svg>
-                </div>
-                <div>
-                  <div className="font-semibold text-foreground">{totalItems} Items</div>
-                  <div className="text-sm text-muted-foreground">Added to cart</div>
-                </div>
-              </div>
-              <div className="flex items-center space-x-3">
-                <Button 
-                  onClick={() => setIsCartOpen(true)}
-                  variant="outline"
-                  className="border-purple-600 text-purple-600 hover:bg-purple-50 px-4 py-2 rounded-lg font-medium"
-                  data-testid="button-view-cart-bottom"
-                >
-                  View Cart
-                </Button>
-                <Button 
-                  onClick={() => window.location.href = '/checkout'}
-                  className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-lg font-medium"
-                  data-testid="button-checkout-bottom"
-                >
-                  Checkout
-                </Button>
-              </div>
+        {/* Bottom CTA */}
+        <section className="relative rounded-2xl overflow-hidden border border-purple-500/20 glass-intense glow-purple mb-10">
+          <div className="relative z-10 px-6 sm:px-10 py-8 sm:py-10 flex flex-col sm:flex-row items-center justify-between gap-6">
+            <div>
+              <h3 className="text-2xl sm:text-3xl font-bold">
+                Hungry? Need Stationery? We got you.
+              </h3>
+              <p className="text-gray-300 mt-2">Place your order now and get it delivered in minutes.</p>
+            </div>
+            <div className="flex items-center gap-3">
+              <Button className="btn-glow text-white px-6 py-5">Order Now</Button>
+              <Button variant="outline" className="border-purple-400/40 text-purple-300 hover:bg-white/5">View Menu</Button>
             </div>
           </div>
-        </div>
-      )}
+          <div className="absolute inset-0 -z-0 bg-gradient-to-r from-purple-900/30 via-transparent to-blue-900/30"></div>
+        </section>
+      </main>
 
-      <CartSidebar isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} />
+      {/* Bottom Cart Summary removed from Home to avoid distraction */}
+      {/* CartSidebar removed from Home; use /cart page instead */}
     </div>
   );
 }

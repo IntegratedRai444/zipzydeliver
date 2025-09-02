@@ -9,7 +9,7 @@ export interface AuthenticatedRequest extends Request {
   };
 }
 
-export function authenticateToken(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+export async function authenticateToken(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   try {
     if (!req.session || !req.session.userId) {
       return res.status(401).json({ 
@@ -19,7 +19,7 @@ export function authenticateToken(req: AuthenticatedRequest, res: Response, next
     }
 
     // Get user from storage
-    const user = req.app.locals.storage.getUserById(req.session.userId);
+    const user = await req.app.locals.storage.getUserById(req.session.userId);
     if (!user) {
       return res.status(401).json({ 
         success: false, 
@@ -43,7 +43,7 @@ export function authenticateToken(req: AuthenticatedRequest, res: Response, next
   }
 }
 
-export function authenticateAdmin(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+export async function authenticateAdmin(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   try {
     if (!req.session || !req.session.userId) {
       return res.status(401).json({ 
@@ -52,7 +52,7 @@ export function authenticateAdmin(req: AuthenticatedRequest, res: Response, next
       });
     }
 
-    const user = req.app.locals.storage.getUserById(req.session.userId);
+    const user = await req.app.locals.storage.getUserById(req.session.userId);
     if (!user || user.role !== 'admin') {
       return res.status(403).json({ 
         success: false, 
@@ -76,10 +76,10 @@ export function authenticateAdmin(req: AuthenticatedRequest, res: Response, next
   }
 }
 
-export function optionalAuth(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+export async function optionalAuth(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   try {
     if (req.session && req.session.userId) {
-      const user = req.app.locals.storage.getUserById(req.session.userId);
+      const user = await req.app.locals.storage.getUserById(req.session.userId);
       if (user) {
         req.user = {
           id: user.id,

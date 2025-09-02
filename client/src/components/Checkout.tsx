@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { useCart } from '@/hooks/useCart';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import { useQuery } from '@tanstack/react-query';
@@ -30,7 +29,19 @@ interface CheckoutForm {
 
 export default function Checkout() {
   const { user } = useAuth();
-  const { cartItems, total, clearCart } = useCart();
+  // Use server cart to stay consistent with Home/Cart bottom bar
+  const { data: serverCart = { cartItems: [] as any[] }, isLoading: cartLoading } = useQuery({
+    queryKey: ['/api/cart'],
+    queryFn: async () => {
+      const res = await apiRequest('GET', '/api/cart');
+      return res || { cartItems: [] };
+    },
+    refetchOnWindowFocus: false,
+  });
+  const cartItems = (serverCart as any)?.cartItems || [];
+  const total = Array.isArray(cartItems)
+    ? cartItems.reduce((sum: number, item: any) => sum + (parseFloat(item?.product?.price || '0') * (item?.quantity || 0)), 0) + (cartItems.length ? 20 : 0)
+    : 0;
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -101,12 +112,12 @@ export default function Checkout() {
       };
 
       // Prepare order items
-      const items = cartItems.map(item => ({
+      const items = (cartItems || []).map((item: any) => ({
         productId: item.product.id,
         productName: item.product.name,
         quantity: item.quantity,
         unitPrice: item.product.price,
-        totalPrice: item.product.price * item.quantity,
+        totalPrice: parseFloat(item.product.price) * item.quantity,
       }));
 
       // Create order
@@ -229,11 +240,11 @@ export default function Checkout() {
                     <Package className="w-6 h-6 text-purple-600" />
                   </div>
                   <div>
-                    <p className="font-medium">{item.product.name}</p>
-                    <p className="text-sm text-gray-500">Qty: {item.quantity}</p>
+                    <p className="font-medium">{item?.product?.name || 'Item'}</p>
+                    <p className="text-sm text-gray-500">Qty: {item?.quantity || 0}</p>
                   </div>
                 </div>
-                <p className="font-semibold">₹{item.product.price * item.quantity}</p>
+                <p className="font-semibold">₹{((parseFloat(item?.product?.price || '0')) * (item?.quantity || 0)).toFixed(2)}</p>
               </div>
             ))}
             

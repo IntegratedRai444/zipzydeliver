@@ -43,19 +43,21 @@ export class BudgetPlannerService {
       
       // Filter products based on constraints
       let eligibleProducts = allProducts.filter((product: any) => {
+        const price = Number(product.price ?? 0);
+        const categoryName = ((product.category?.name) || product.categoryId || '').toLowerCase();
         // Price filter
-        if (product.price > budget.maxAmount) return false;
+        if (price > budget.maxAmount) return false;
         
         // Category exclusions
-        if (budget.excludeCategories && product.category?.name) {
-          if (budget.excludeCategories.includes(product.category.name.toLowerCase())) {
+        if (budget.excludeCategories && categoryName) {
+          if (budget.excludeCategories.includes(categoryName)) {
             return false;
           }
         }
         
         // Category preferences
-        if (budget.preferredCategories && product.category?.name) {
-          if (!budget.preferredCategories.includes(product.category.name.toLowerCase())) {
+        if (budget.preferredCategories && categoryName) {
+          if (!budget.preferredCategories.includes(categoryName)) {
             return false;
           }
         }
@@ -79,14 +81,15 @@ export class BudgetPlannerService {
         if (totalCost >= budget.maxAmount) break;
         
         // Calculate optimal quantity
-        const maxQuantity = Math.floor(remainingBudget / product.price);
+        const unitPrice = Number(product.price ?? 0);
+        const maxQuantity = unitPrice > 0 ? Math.floor(remainingBudget / unitPrice) : 0;
         if (maxQuantity <= 0) continue;
         
         // Limit quantity based on product type
         let optimalQuantity = Math.min(maxQuantity, this.getOptimalQuantity(product, budget));
         
         if (optimalQuantity > 0) {
-          const itemCost = product.price * optimalQuantity;
+          const itemCost = unitPrice * optimalQuantity;
           if (totalCost + itemCost <= budget.maxAmount) {
             suggestedItems.push({
               product,
@@ -127,8 +130,8 @@ export class BudgetPlannerService {
 
   // Get optimal quantity based on product type and meal context
   private getOptimalQuantity(product: any, budget: BudgetConstraint): number {
-    const productName = product.name.toLowerCase();
-    const category = product.category?.name?.toLowerCase() || '';
+    const productName = (product.name || '').toLowerCase();
+    const category = ((product.category?.name) || product.categoryId || '').toLowerCase();
     
     // Meal-based quantity logic
     if (budget.mealType === 'breakfast') {
@@ -176,11 +179,11 @@ export class BudgetPlannerService {
     }
     
     if (budget.mealType && product.category?.name) {
-      if (budget.mealType === 'breakfast' && product.category.name.toLowerCase().includes('breakfast')) {
+      if (budget.mealType === 'breakfast' && (product.category.name || '').toLowerCase().includes('breakfast')) {
         reasons.push('Perfect for breakfast');
-      } else if (budget.mealType === 'lunch' && product.category.name.toLowerCase().includes('lunch')) {
+      } else if (budget.mealType === 'lunch' && (product.category.name || '').toLowerCase().includes('lunch')) {
         reasons.push('Great lunch option');
-      } else if (budget.mealType === 'dinner' && product.category.name.toLowerCase().includes('dinner')) {
+      } else if (budget.mealType === 'dinner' && (product.category.name || '').toLowerCase().includes('dinner')) {
         reasons.push('Ideal for dinner');
       }
     }
@@ -198,7 +201,7 @@ export class BudgetPlannerService {
     
     for (const item of items) {
       // Mock calorie estimation based on product category
-      const category = item.product.category?.name?.toLowerCase() || '';
+      const category = ((item.product.category?.name) || item.product.categoryId || '').toLowerCase();
       let caloriesPerUnit = 0;
       
       if (category.includes('snack')) caloriesPerUnit = 150;
@@ -259,7 +262,7 @@ export class BudgetPlannerService {
       if (!targetProduct) return [];
       
       const allProducts = await db.getProducts();
-      const category = targetProduct.category?.name;
+      const category = ((targetProduct as any).category?.name) || (targetProduct as any).categoryId;
       
       // Find alternatives in same category with lower price
       const alternatives = allProducts
@@ -299,8 +302,8 @@ export class BudgetPlannerService {
         for (const item of items) {
           const product = await db.getProduct(item.productId);
           if (product) {
-            const category = product.category?.name || 'Uncategorized';
-            const amount = (product.price * item.quantity) || 0;
+            const category = ((product as any).category?.name) || (product as any).categoryId || 'Uncategorized';
+            const amount = (Number((product as any).price ?? 0) * item.quantity) || 0;
             
             categorySpending.set(category, (categorySpending.get(category) || 0) + amount);
             totalSpent += amount;

@@ -11,6 +11,8 @@ export interface User {
   hostelAddress?: string;
   phone?: string;
   isAdmin: boolean;
+  isDeliveryPartner?: boolean;
+  role?: string;
   zpointsBalance: number;
   createdAt: Date;
   updatedAt: Date;

@@ -3,11 +3,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useQueryClient } from "@tanstack/react-query";
-import { useLocation } from "wouter";
+import { getErrorMessage, logError } from "@/lib/errorHandling";
 
 export default function Signup() {
   const queryClient = useQueryClient();
-  const [, setLocation] = useLocation();
   
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -22,6 +21,53 @@ export default function Signup() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    
+    // Form validation
+    if (!fullName.trim()) {
+      setError('Full name is required');
+      return;
+    }
+    
+    if (!email.trim()) {
+      setError('Email is required');
+      return;
+    }
+    
+    if (!email.includes('@')) {
+      setError('Please enter a valid email address');
+      return;
+    }
+    
+    if (!password) {
+      setError('Password is required');
+      return;
+    }
+    
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters long');
+      return;
+    }
+    
+    if (!userId.trim()) {
+      setError('User ID is required');
+      return;
+    }
+    
+    if (!studentId.trim()) {
+      setError('Student ID is required');
+      return;
+    }
+    
+    if (!phone.trim()) {
+      setError('Phone number is required');
+      return;
+    }
+    
+    if (!landmark.trim()) {
+      setError('Campus location is required');
+      return;
+    }
+    
     setLoading(true);
     
     console.log('Starting signup process...');
@@ -72,100 +118,217 @@ export default function Signup() {
       console.log('Step 6: Navigation complete!');
       
     } catch (err: any) {
-      console.error('Signup error:', err);
-      setError(err.message || 'Failed to sign up');
+      logError(err, 'Signup');
+      const errorMessage = getErrorMessage(err);
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center px-4">
-      <div className="glass-card rounded-2xl p-8 w-full max-w-md text-white">
-        <h1 className="text-3xl font-bold mb-2 text-center">Create your Zipzy account</h1>
-        <p className="text-purple-200 mb-6 text-center">Sign up to start ordering on campus</p>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <Label className="text-purple-200">Full name</Label>
-            <Input value={fullName} onChange={(e) => setFullName(e.target.value)} required />
-          </div>
-          <div>
-            <Label className="text-purple-200">Email</Label>
-            <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-          </div>
-          <div>
-            <Label className="text-purple-200">Password</Label>
-            <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label className="text-purple-200">User ID</Label>
-              <Input value={userId} onChange={(e) => setUserId(e.target.value)} required />
+    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-purple-800 to-indigo-900 flex items-center justify-center px-4 relative overflow-hidden">
+      {/* Animated Background Elements */}
+      <div className="absolute inset-0 bg-black bg-opacity-30"></div>
+      <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-purple-900 via-purple-800 to-indigo-900 animate-pulse"></div>
+      
+      {/* Floating Particles */}
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute top-1/4 left-1/4 w-2 h-2 bg-purple-400 rounded-full animate-bounce"></div>
+        <div className="absolute top-1/3 right-1/4 w-1 h-1 bg-pink-400 rounded-full animate-bounce animate-delay-1000"></div>
+        <div className="absolute bottom-1/4 left-1/3 w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce animate-delay-2000"></div>
+      </div>
+      
+      {/* Main Content */}
+      <div className="relative z-10 w-full max-w-4xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
+        
+        {/* Left Side - Branding */}
+        <div className="text-center lg:text-left text-white space-y-6">
+          {/* Enhanced Logo */}
+          <div className="flex items-center justify-center lg:justify-start mb-8">
+            <div className="relative">
+              <div className="bg-gradient-to-br from-white to-purple-100 text-purple-600 rounded-full p-6 shadow-2xl transform hover:scale-110 transition-transform duration-300">
+                <svg className="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
+                </svg>
+              </div>
+              <div className="absolute -inset-2 bg-gradient-to-r from-purple-400 to-pink-400 rounded-full opacity-20 blur-lg animate-pulse"></div>
             </div>
-            <div>
-              <Label className="text-purple-200">Student ID</Label>
-              <Input value={studentId} onChange={(e) => setStudentId(e.target.value)} required />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label className="text-purple-200">Phone</Label>
-              <Input value={phone} onChange={(e) => setPhone(e.target.value)} required />
-            </div>
-            <div>
-              <Label className="text-purple-200">Location / Landmark</Label>
-              <Input value={landmark} onChange={(e) => setLandmark(e.target.value)} required />
-            </div>
-          </div>
-          {error && <div className="text-red-300 text-sm">{error}</div>}
-          <Button type="submit" className="w-full bg-purple-600 hover:bg-purple-700" disabled={loading}>
-            {loading ? 'Creating account...' : 'Sign up'}
-          </Button>
-          <div className="text-sm text-center text-purple-200 mt-2">
-            Already have an account? <a href="/login" className="underline">Login</a>
           </div>
           
-          {/* Debug buttons */}
-          <Button 
-            type="button" 
-            onClick={async () => {
-              console.log('Testing auth endpoint...');
-              try {
-                const resp = await fetch('/api/auth/user');
-                const data = await resp.json();
-                console.log('Auth response:', data);
-                alert(`Auth status: ${resp.status}, User: ${JSON.stringify(data)}`);
-              } catch (err) {
-                console.error('Auth test error:', err);
-                alert('Auth test failed: ' + err);
-              }
-            }}
-            className="w-full bg-gray-600 hover:bg-gray-700 mt-2"
-          >
-            Test Auth Status
-          </Button>
+          {/* Enhanced Typography */}
+          <div className="space-y-4">
+            <h1 className="text-6xl lg:text-7xl font-black bg-gradient-to-r from-white via-purple-100 to-pink-100 bg-clip-text text-transparent animate-pulse">
+              ZIPZY
+            </h1>
+            <p className="text-2xl lg:text-3xl font-semibold text-purple-100 leading-relaxed">
+              Join the fastest delivery network
+            </p>
+            <p className="text-lg lg:text-xl text-purple-200 leading-relaxed max-w-lg">
+              Create your account and start enjoying lightning-fast campus delivery! 🚀💜
+            </p>
+          </div>
           
-          <Button 
-            type="button" 
-            onClick={async () => {
-              console.log('Manual auth refetch...');
-              try {
-                if ((window as any).manualAuthRefetch) {
-                  await (window as any).manualAuthRefetch();
-                  alert('Manual refetch completed - check console');
-                } else {
-                  alert('Manual refetch not available');
-                }
-              } catch (err) {
-                console.error('Manual refetch error:', err);
-                alert('Manual refetch failed: ' + err);
-              }
-            }}
-            className="w-full bg-blue-600 hover:bg-blue-700 mt-2"
-          >
-            Manual Auth Refetch
-          </Button>
-        </form>
+          {/* Benefits */}
+          <div className="hidden lg:block mt-8 space-y-3">
+            <div className="flex items-center space-x-3 text-purple-200">
+              <div className="w-8 h-8 bg-purple-600 rounded-full flex items-center justify-center">
+                <span className="text-white text-sm">⚡</span>
+              </div>
+              <span>Get started in minutes</span>
+            </div>
+            <div className="flex items-center space-x-3 text-purple-200">
+              <div className="w-8 h-8 bg-purple-600 rounded-full flex items-center justify-center">
+                <span className="text-white text-sm">🎁</span>
+              </div>
+              <span>Earn rewards and discounts</span>
+            </div>
+            <div className="flex items-center space-x-3 text-purple-200">
+              <div className="w-8 h-8 bg-purple-600 rounded-full flex items-center justify-center">
+                <span className="text-white text-sm">🔒</span>
+              </div>
+              <span>Secure and private</span>
+            </div>
+          </div>
+        </div>
+        
+        {/* Right Side - Enhanced Signup Form */}
+        <div className="bg-white/10 backdrop-blur-xl rounded-3xl p-8 lg:p-10 shadow-2xl border border-white/20">
+          <div className="text-center mb-8">
+            <h2 className="text-3xl font-bold text-white mb-2">Join ZIPZY</h2>
+            <p className="text-purple-200">Create your account to start ordering</p>
+          </div>
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="space-y-2">
+              <Label className="text-purple-100 font-medium">Full name</Label>
+              <Input 
+                value={fullName} 
+                onChange={(e) => setFullName(e.target.value)} 
+                required 
+                className="bg-white/20 border-white/30 text-white placeholder-purple-200 focus:bg-white/30 focus:border-purple-400 transition-all duration-300"
+                placeholder="Enter your full name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-purple-100 font-medium">Email</Label>
+              <Input 
+                type="email" 
+                value={email} 
+                onChange={(e) => setEmail(e.target.value)} 
+                required 
+                className="bg-white/20 border-white/30 text-white placeholder-purple-200 focus:bg-white/30 focus:border-purple-400 transition-all duration-300"
+                placeholder="Enter your email"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-purple-100 font-medium">Password</Label>
+              <Input 
+                type="password" 
+                value={password} 
+                onChange={(e) => setPassword(e.target.value)} 
+                required 
+                minLength={6}
+                className="bg-white/20 border-white/30 text-white placeholder-purple-200 focus:bg-white/30 focus:border-purple-400 transition-all duration-300"
+                placeholder="Create a password (min 6 characters)"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label className="text-purple-100 font-medium">User ID</Label>
+                <Input 
+                  value={userId} 
+                  onChange={(e) => setUserId(e.target.value)} 
+                  required 
+                  className="bg-white/20 border-white/30 text-white placeholder-purple-200 focus:bg-white/30 focus:border-purple-400 transition-all duration-300"
+                  placeholder="Your ID"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-purple-100 font-medium">Student ID</Label>
+                <Input 
+                  value={studentId} 
+                  onChange={(e) => setStudentId(e.target.value)} 
+                  required 
+                  className="bg-white/20 border-white/30 text-white placeholder-purple-200 focus:bg-white/30 focus:border-purple-400 transition-all duration-300"
+                  placeholder="Student ID"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label className="text-purple-100 font-medium">Phone</Label>
+                <Input 
+                  value={phone} 
+                  onChange={(e) => setPhone(e.target.value)} 
+                  required 
+                  className="bg-white/20 border-white/30 text-white placeholder-purple-200 focus:bg-white/30 focus:border-purple-400 transition-all duration-300"
+                  placeholder="Phone number"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-purple-100 font-medium">Location</Label>
+                <Input 
+                  value={landmark} 
+                  onChange={(e) => setLandmark(e.target.value)} 
+                  required 
+                  className="bg-white/20 border-white/30 text-white placeholder-purple-200 focus:bg-white/30 focus:border-purple-400 transition-all duration-300"
+                  placeholder="Campus location"
+                />
+              </div>
+            </div>
+            
+            {error && (
+              <div className="bg-red-500/20 border border-red-400/50 rounded-lg p-3 text-red-200 text-sm">
+                {error}
+              </div>
+            )}
+            
+            <Button 
+              type="submit" 
+              className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold py-3 rounded-xl transform hover:scale-105 transition-all duration-300 shadow-lg" 
+              disabled={loading}
+            >
+              {loading ? (
+                <div className="flex items-center space-x-2">
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  <span>Creating account...</span>
+                </div>
+              ) : (
+                'Create Account'
+              )}
+            </Button>
+            
+                         <div className="text-center space-y-4">
+               <div>
+                 <span className="text-purple-200">Already have an account? </span>
+                 <a href="/login" className="text-purple-300 hover:text-white underline font-medium transition-colors duration-300">
+                   Login
+                 </a>
+               </div>
+               
+               {/* Quick Access Links */}
+               <div className="pt-4 border-t border-white/20">
+                 <p className="text-purple-200 text-sm mb-3">Quick Access:</p>
+                                   <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                    <a 
+                      href="/login?email=rishabh.kapoor@test.com&password=test123" 
+                      className="inline-flex items-center justify-center px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white text-sm font-medium rounded-lg transition-all duration-300 transform hover:scale-105 shadow-lg"
+                    >
+                      <span className="mr-2">👤</span>
+                      Quick User Login
+                    </a>
+                    <a 
+                      href="/login?email=rishabhkapoor@atomicmail.io&password=Rishabhkapoor@0444" 
+                      className="inline-flex items-center justify-center px-4 py-2 bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-700 hover:to-pink-700 text-white text-sm font-medium rounded-lg transition-all duration-300 transform hover:scale-105 shadow-lg"
+                    >
+                      <span className="mr-2">👨‍💼</span>
+                      Quick Admin Login
+                    </a>
+                  </div>
+               </div>
+             </div>
+          </form>
+        </div>
       </div>
     </div>
   );
